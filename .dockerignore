@@ -1,0 +1,15 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+.next
+.git
+.gitignore
+README.md
+DEPLOYMENT.md
+DEPLOY_GCP_FUNCTIONS.md
+DEPLOY_QUICKSTART.md
+.env.local
+.env*.local
+.vercel
+
