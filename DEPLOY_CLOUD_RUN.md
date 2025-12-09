@@ -90,6 +90,7 @@ output: 'standalone',
 If you get a **"PERMISSION_DENIED"** error during deployment, the compute service account needs additional permissions.
 
 **Quick fix via Console:**
+
 1. Go to [IAM & Admin → IAM](https://console.cloud.google.com/iam-admin/iam)
 2. Find: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`
 3. Click **Edit** → **Add Role**
@@ -97,6 +98,7 @@ If you get a **"PERMISSION_DENIED"** error during deployment, the compute servic
 5. Click **Save**
 
 **Or use CLI:**
+
 ```bash
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 
@@ -327,6 +329,7 @@ gcloud run services delete gmail-merge --region us-central1
 This means the compute service account needs Cloud Build permissions.
 
 **Quick fix:**
+
 ```bash
 # Get project number
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
@@ -346,6 +349,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 ```
 
 **Or via Console:**
+
 1. Go to [IAM & Admin → IAM](https://console.cloud.google.com/iam-admin/iam)
 2. Find: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`
 3. Click **Edit** → **Add Role**
