@@ -27,7 +27,7 @@ export default function Home() {
       // Clean up URL
       window.history.replaceState({}, "", window.location.pathname);
     }
-    
+
     fetchAuthUrl();
     loadContacts();
   }, []);
@@ -64,27 +64,102 @@ export default function Home() {
     }
   };
 
+  const [scanJobId, setScanJobId] = useState<string | null>(null);
+  const [scanStatus, setScanStatus] = useState<any>(null);
+  const [scanPollingInterval, setScanPollingInterval] = useState<NodeJS.Timeout | null>(null);
+
+  const stopPolling = () => {
+    if (scanPollingInterval) {
+      clearInterval(scanPollingInterval);
+      setScanPollingInterval(null);
+    }
+  };
+
+  const startPollingStatus = (jobId: string) => {
+    stopPolling(); // Clear any existing polling
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/gmail/sync/status/${jobId}`);
+        if (!res.ok) {
+          stopPolling();
+          setError("Failed to check scan status");
+          return;
+        }
+        const status = await res.json();
+        setScanStatus(status);
+
+        // Stop polling if job is done
+        if (status.status !== "running") {
+          stopPolling();
+          // Refresh data if complete
+          if (status.status === "completed") {
+            await loadContacts();
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+        stopPolling();
+      }
+    };
+
+    // Poll immediately, then every 5 seconds
+    poll();
+    const intervalId = setInterval(poll, 5000);
+    setScanPollingInterval(intervalId);
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     setError(null);
     try {
-      const res = await fetch("/api/gmail/sync", { method: "POST" });
+      const res = await fetch("/api/gmail/sync/start", { method: "POST" });
       if (res.status === 401) {
         setError("Please connect your Gmail account first.");
         setSyncing(false);
         return;
       }
       if (!res.ok) {
-        setError("Sync failed. Try reconnecting your Google account.");
+        setError("Failed to start scan. Try reconnecting your Google account.");
         setSyncing(false);
         return;
       }
-      const json = (await res.json()) as ContactResponse;
-      setData(json);
+      const json = await res.json();
+      setScanJobId(json.jobId);
+      startPollingStatus(json.jobId);
+    } catch (err) {
+      setError("Failed to start scan");
+      console.error(err);
     } finally {
       setSyncing(false);
     }
   };
+
+  const handleStopScan = async () => {
+    if (!scanJobId) return;
+
+    try {
+      const res = await fetch(`/api/gmail/sync/stop/${scanJobId}`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setScanStatus({ ...scanStatus, status: "cancelled", completeMessage: data.message });
+        stopPolling();
+        await loadContacts(); // Refresh to show saved data
+      }
+    } catch (err) {
+      console.error("Failed to stop scan:", err);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
+
+  const isScanning = scanStatus?.status === "running";
+  const scanTimeRemaining = scanStatus?.estimatedTimeRemaining;
 
   const merged = useMemo(() => data?.merged ?? [], [data]);
 
@@ -95,13 +170,10 @@ export default function Home() {
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12">
         <header className="flex flex-col gap-2">
           <p className="text-sm font-medium text-emerald-600">Inbox mapper</p>
-          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
-            Merge Gmail senders and recipients
-          </h1>
+          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">Merge Gmail senders and recipients</h1>
           <p className="text-base text-zinc-600">
-            Connect with Google OAuth, sample your inbox, and store a deduped
-            list of every address you&apos;ve talked to. Data is persisted in
-            Firestore for quick reloads.
+            Connect with Google OAuth, sample your inbox, and store a deduped list of every address you&apos;ve talked
+            to. Data is persisted in Firestore for quick reloads.
           </p>
         </header>
 
@@ -112,10 +184,7 @@ export default function Home() {
             value={merged.length.toString()}
             hint={isConnected ? "Distinct senders + recipients" : undefined}
           />
-          <Stat
-            label="Messages sampled"
-            value={(data?.messageSampleCount ?? 0).toString()}
-          />
+          <Stat label="Messages sampled" value={(data?.messageSampleCount ?? 0).toString()} />
         </section>
 
         <section className="flex flex-wrap gap-3">
@@ -128,10 +197,10 @@ export default function Home() {
           </button>
           <button
             className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={handleSync}
+            onClick={isScanning ? handleStopScan : handleSync}
             disabled={!isConnected || syncing}
           >
-            {syncing ? "Syncing..." : "Sync inbox"}
+            {syncing ? "Starting..." : isScanning ? "Stop Scanning" : "Scan Inbox"}
           </button>
           <button
             className="rounded-md border border-transparent px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900"
@@ -142,24 +211,59 @@ export default function Home() {
         </section>
 
         {error ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </div>
+          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
         ) : null}
 
+        {/* Scanning Progress */}
+        {isScanning && (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-900">🔄 Scanning Inbox</h3>
+                <p className="text-sm text-zinc-600">Scanning messages and collecting email addresses...</p>
+              </div>
+            </div>
+
+            {/* Indeterminate Progress Bar */}
+            <div className="w-full bg-zinc-200 rounded-full h-2 mb-4">
+              <div className="bg-zinc-600 h-2 rounded-full animate-pulse"></div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-zinc-500">Messages processed:</span>
+                <span className="ml-2 font-medium">{scanStatus?.messagesProcessed || 0}</span>
+              </div>
+              <div>
+                <span className="text-zinc-500">Addresses found:</span>
+                <span className="ml-2 font-medium">{scanStatus?.addressesFound || 0}</span>
+              </div>
+              <div>
+                <span className="text-zinc-500">Time elapsed:</span>
+                <span className="ml-2 font-medium">
+                  {Math.floor((scanStatus?.timeElapsed || 0) / 60)}m {Math.floor((scanStatus?.timeElapsed || 0) % 60)}s
+                </span>
+              </div>
+            </div>
+
+            {scanTimeRemaining && scanTimeRemaining > 0 && (
+              <div className="mt-3 text-xs text-zinc-500">
+                Estimated time remaining: ~{Math.ceil(scanTimeRemaining / 60)} minutes
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Completion Messages */}
+        {scanStatus && scanStatus.status !== "running" && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {scanStatus.completeMessage}
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card
-            title="Senders"
-            description="Who emailed you"
-            loading={loading}
-            items={data?.senders ?? []}
-          />
-          <Card
-            title="Recipients"
-            description="Who you emailed"
-            loading={loading}
-            items={data?.recipients ?? []}
-          />
+          <Card title="Senders" description="Who emailed you" loading={loading} items={data?.senders ?? []} />
+          <Card title="Recipients" description="Who you emailed" loading={loading} items={data?.recipients ?? []} />
         </div>
 
         <Card
@@ -202,9 +306,7 @@ function Card({
           <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
         </div>
         {badge ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            {badge}
-          </span>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
         ) : null}
       </div>
 
@@ -214,10 +316,7 @@ function Card({
         ) : items.length ? (
           <ul className="space-y-2 text-sm text-zinc-800">
             {items.map((item) => (
-              <li
-                key={item}
-                className="rounded-md bg-white px-3 py-2 shadow-sm"
-              >
+              <li key={item} className="rounded-md bg-white px-3 py-2 shadow-sm">
                 {item}
               </li>
             ))}
@@ -226,22 +325,12 @@ function Card({
           <p className="text-sm text-zinc-500">No data yet.</p>
         )}
       </div>
-      {footer ? (
-        <p className="mt-3 text-xs text-zinc-500">{footer}</p>
-      ) : null}
+      {footer ? <p className="mt-3 text-xs text-zinc-500">{footer}</p> : null}
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm">
       <p className="text-sm text-zinc-500">{label}</p>
