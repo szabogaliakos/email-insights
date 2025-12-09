@@ -103,24 +103,49 @@ gcloud run deploy $SERVICE_NAME \
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)' 2>/dev/null)
 
-echo ""
-echo "✅ Deployment complete!"
-echo ""
-echo "📍 Service URL: $SERVICE_URL"
+if [ -n "$SERVICE_URL" ]; then
+    echo ""
+    echo "✅ Deployment complete!"
+    echo ""
+    echo "📍 Service URL: $SERVICE_URL"
+    echo ""
+    echo "🔧 Setting NEXT_PUBLIC_BASE_URL automatically..."
+    gcloud run services update $SERVICE_NAME \
+      --region=$REGION \
+      --update-env-vars="NEXT_PUBLIC_BASE_URL=$SERVICE_URL" \
+      --quiet 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ NEXT_PUBLIC_BASE_URL set to: $SERVICE_URL"
+    else
+        echo "⚠️  Could not set NEXT_PUBLIC_BASE_URL automatically"
+    fi
+else
+    echo ""
+    echo "✅ Deployment complete!"
+    echo ""
+    echo "⚠️  Could not get service URL. Get it manually:"
+    echo "   gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)'"
+fi
+
 echo ""
 echo "⚠️  IMPORTANT: You still need to:"
-echo "1. Set environment variables:"
+echo "1. Set remaining environment variables:"
 echo "   - GOOGLE_CLIENT_ID"
 echo "   - GOOGLE_CLIENT_SECRET"
-echo "   - NEXT_PUBLIC_BASE_URL=$SERVICE_URL"
 echo "   - FIRESTORE_CLIENT_EMAIL"
 echo "   - FIRESTORE_PRIVATE_KEY"
 echo ""
-echo "2. Update OAuth redirect URI in Google Cloud Console to:"
-echo "   $SERVICE_URL/api/auth/callback"
-echo ""
-echo "To set env vars, run:"
-echo "gcloud run services update $SERVICE_NAME --region=$REGION --update-env-vars='KEY=VALUE'"
+if [ -n "$SERVICE_URL" ]; then
+    echo "2. Update OAuth redirect URI in Google Cloud Console to:"
+    echo "   $SERVICE_URL/api/auth/callback"
+    echo ""
+    echo "3. If NEXT_PUBLIC_BASE_URL wasn't set automatically, run:"
+    echo "   gcloud run services update $SERVICE_NAME --region=$REGION --update-env-vars='NEXT_PUBLIC_BASE_URL=$SERVICE_URL'"
+    echo ""
+fi
+echo "To set all env vars at once, run:"
+echo "gcloud run services update $SERVICE_NAME --region=$REGION --update-env-vars='GOOGLE_CLIENT_ID=xxx,GOOGLE_CLIENT_SECRET=xxx,NEXT_PUBLIC_BASE_URL=$SERVICE_URL'"
 echo ""
 echo "See DEPLOY_CLOUD_RUN.md for detailed instructions."
 
