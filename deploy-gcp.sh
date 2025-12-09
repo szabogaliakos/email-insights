@@ -47,6 +47,46 @@ else
     exit 1
 fi
 
+# Get project number for service account
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)' 2>/dev/null)
+if [ -z "$PROJECT_NUMBER" ]; then
+    echo "⚠️  Could not get project number. Continuing anyway..."
+else
+    echo "🔍 Checking service account permissions..."
+    
+    # Check if compute service account has Cloud Build permissions
+    HAS_BUILDER=$(gcloud projects get-iam-policy $PROJECT_ID \
+        --flatten="bindings[].members" \
+        --filter="bindings.members:serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com AND bindings.role:roles/cloudbuild.builds.builder" \
+        --format="value(bindings.role)" 2>/dev/null)
+    
+    if [ -z "$HAS_BUILDER" ]; then
+        echo "⚠️  Compute service account missing Cloud Build permissions"
+        echo "   Attempting to fix automatically..."
+        
+        # Grant required permissions
+        gcloud projects add-iam-policy-binding $PROJECT_ID \
+            --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+            --role="roles/cloudbuild.builds.builder" \
+            --condition=None 2>/dev/null
+        
+        gcloud projects add-iam-policy-binding $PROJECT_ID \
+            --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+            --role="roles/iam.serviceAccountUser" \
+            --condition=None 2>/dev/null
+        
+        gcloud projects add-iam-policy-binding $PROJECT_ID \
+            --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+            --role="roles/storage.admin" \
+            --condition=None 2>/dev/null
+        
+        echo "✅ Permissions granted. Waiting 10 seconds for propagation..."
+        sleep 10
+    else
+        echo "✅ Service account permissions OK"
+    fi
+fi
+
 # Build and deploy
 echo "🔨 Building and deploying..."
 gcloud run deploy $SERVICE_NAME \

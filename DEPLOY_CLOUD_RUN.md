@@ -34,6 +34,7 @@ Complete guide to deploy your Next.js Gmail merge app to Google Cloud Run.
 **⚠️ Billing must be enabled before you can use Cloud Run**, even for free tier.
 
 **Quick setup:**
+
 1. Go to [Google Cloud Console Billing](https://console.cloud.google.com/billing)
 2. Click **"Link a billing account"** or **"Create Account"**
 3. Add a payment method (credit/debit card)
@@ -62,6 +63,7 @@ gcloud services enable artifactregistry.googleapis.com
 ```
 
 **If you get "billing account not found" error:**
+
 - See [ENABLE_BILLING.md](./ENABLE_BILLING.md) for help
 - Or link billing via CLI:
   ```bash
@@ -83,7 +85,39 @@ The following files are already configured:
 output: 'standalone',
 ```
 
-### Step 4: Deploy to Cloud Run
+### Step 4: Fix Permissions (If Needed)
+
+If you get a **"PERMISSION_DENIED"** error during deployment, the compute service account needs additional permissions.
+
+**Quick fix via Console:**
+1. Go to [IAM & Admin → IAM](https://console.cloud.google.com/iam-admin/iam)
+2. Find: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`
+3. Click **Edit** → **Add Role**
+4. Add: `Cloud Build Service Account`, `Service Account User`, `Storage Admin`
+5. Click **Save**
+
+**Or use CLI:**
+```bash
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.admin"
+```
+
+**Detailed guide:** See [FIX_PERMISSIONS.md](./FIX_PERMISSIONS.md)
+
+**Note:** The deployment script (`deploy-gcp.sh`) will attempt to fix this automatically.
+
+### Step 5: Deploy to Cloud Run
 
 ```bash
 # Set your variables (customize these)
@@ -112,7 +146,7 @@ gcloud run deploy $SERVICE_NAME \
 
 **Wait 3-5 minutes** for the first deployment to complete.
 
-### Step 5: Get Your Service URL
+### Step 6: Get Your Service URL
 
 ```bash
 # Get the service URL
@@ -123,7 +157,7 @@ gcloud run services describe $SERVICE_NAME \
 
 Save this URL - you'll need it for the next steps.
 
-### Step 6: Set Environment Variables
+### Step 7: Set Environment Variables
 
 Set all required environment variables:
 
@@ -152,7 +186,7 @@ gcloud run services update $SERVICE_NAME \
 --update-env-vars="FIRESTORE_PRIVATE_KEY=\"-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC1234567890abcdef...\\n-----END PRIVATE KEY-----\\n\""
 ```
 
-### Step 7: Use Secrets Manager (Recommended for Production)
+### Step 8: Use Secrets Manager (Recommended for Production)
 
 For better security, use Google Secret Manager instead of environment variables:
 
@@ -187,7 +221,7 @@ gcloud run services update $SERVICE_NAME \
   --update-env-vars="NEXT_PUBLIC_BASE_URL=$SERVICE_URL,FIRESTORE_PROJECT_ID=$PROJECT_ID,FIRESTORE_CLIENT_EMAIL=your-service-account@$PROJECT_ID.iam.gserviceaccount.com"
 ```
 
-### Step 8: Update Google OAuth Redirect URI
+### Step 9: Update Google OAuth Redirect URI
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Navigate to **APIs & Services** → **Credentials**
@@ -199,7 +233,7 @@ gcloud run services update $SERVICE_NAME \
    (Replace with your actual service URL from Step 4)
 5. Click **Save**
 
-### Step 9: Test Your Deployment
+### Step 10: Test Your Deployment
 
 1. Visit your service URL: `https://gmail-merge-xxxxx-uc.a.run.app`
 2. Click "Connect Gmail" and complete OAuth flow
@@ -285,6 +319,41 @@ gcloud run services delete gmail-merge --region us-central1
 - 1 GB memory, 0.5 vCPU, 24/7: ~$20/month
 
 ## Troubleshooting
+
+### Permission Denied Error
+
+**Error: "PERMISSION_DENIED: Build failed because the default service account is missing required IAM permissions"**
+
+This means the compute service account needs Cloud Build permissions.
+
+**Quick fix:**
+```bash
+# Get project number
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+# Grant required permissions
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.admin"
+```
+
+**Or via Console:**
+1. Go to [IAM & Admin → IAM](https://console.cloud.google.com/iam-admin/iam)
+2. Find: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`
+3. Click **Edit** → **Add Role**
+4. Add: `Cloud Build Service Account`, `Service Account User`, `Storage Admin`
+
+**Detailed guide:** See [FIX_PERMISSIONS.md](./FIX_PERMISSIONS.md)
+
+**Note:** The deployment script will attempt to fix this automatically.
 
 ### Build Fails
 
