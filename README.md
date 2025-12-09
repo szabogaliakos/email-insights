@@ -2,7 +2,13 @@
 
 Next.js App Router project that links a Gmail account with OAuth, samples
 messages, extracts distinct senders/recipients, and persists the merged list
-to Firestore (suitable for Vercel free tier).
+to Firestore (suitable for Vercel free tier and Google Cloud Run).
+
+### Quick Links
+
+- 📖 [GitHub Setup Guide](./GITHUB_SETUP.md) - Push to GitHub & find Project ID
+- 🚀 [Cloud Run Deployment](./DEPLOY_CLOUD_RUN.md) - Deploy to Google Cloud Run
+- ⚡ [Vercel Deployment](./DEPLOYMENT.md) - Deploy to Vercel
 
 ### Local dev
 
