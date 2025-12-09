@@ -3,21 +3,49 @@
 # Google Cloud Run Deployment Script
 # Make sure to set these variables before running
 
-PROJECT_ID="your-project-id"  # Change this
+PROJECT_ID="email-insights-480701"  # Change this
 REGION="us-central1"           # Change if needed
-SERVICE_NAME="gmail-merge"
+SERVICE_NAME="email-insights"
 
 echo "🚀 Deploying $SERVICE_NAME to Google Cloud Run..."
 
 # Set the project
 gcloud config set project $PROJECT_ID
 
+# Check if billing is enabled
+echo "🔍 Checking billing status..."
+BILLING_STATUS=$(gcloud billing projects describe $PROJECT_ID --format='value(billingAccountName)' 2>/dev/null)
+
+if [ -z "$BILLING_STATUS" ]; then
+    echo ""
+    echo "❌ ERROR: Billing is not enabled for this project!"
+    echo ""
+    echo "📋 To enable billing:"
+    echo "   1. Go to: https://console.cloud.google.com/billing"
+    echo "   2. Click 'Link a billing account' or 'Create Account'"
+    echo "   3. Add a payment method"
+    echo "   4. Link it to your project"
+    echo ""
+    echo "💡 Don't worry - you won't be charged if you stay within free tier limits!"
+    echo "   Free tier: 2 million requests/month"
+    echo ""
+    echo "📖 See ENABLE_BILLING.md for detailed instructions"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Billing is enabled"
+
 # Enable required APIs
 echo "📦 Enabling required APIs..."
-gcloud services enable cloudfunctions.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-gcloud services enable run.googleapis.com
-gcloud services enable artifactregistry.googleapis.com
+if ! gcloud services enable cloudbuild.googleapis.com run.googleapis.com artifactregistry.googleapis.com 2>&1 | grep -q "ERROR"; then
+    echo "✅ APIs enabled successfully"
+else
+    echo ""
+    echo "❌ Failed to enable APIs. This usually means billing is not properly linked."
+    echo "   See ENABLE_BILLING.md for help"
+    exit 1
+fi
 
 # Build and deploy
 echo "🔨 Building and deploying..."

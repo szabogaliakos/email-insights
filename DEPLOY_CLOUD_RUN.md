@@ -18,20 +18,56 @@ Complete guide to deploy your Next.js Gmail merge app to Google Cloud Run.
 
 ## Step-by-Step Deployment
 
-### Step 1: Initial Setup
+### Step 1: Find Your Google Cloud Project ID
+
+**What is Project ID?**
+
+- It's a unique identifier for your Google Cloud project (e.g., `my-gmail-app-123456`)
+- **Not** the project name (which is human-readable)
+- You can find it in:
+  1. [Google Cloud Console](https://console.cloud.google.com/) - top project selector
+  2. Service account email: `service-account@YOUR-PROJECT-ID.iam.gserviceaccount.com`
+  3. Run: `gcloud projects list`
+
+### Step 2: Enable Billing (Required)
+
+**⚠️ Billing must be enabled before you can use Cloud Run**, even for free tier.
+
+**Quick setup:**
+1. Go to [Google Cloud Console Billing](https://console.cloud.google.com/billing)
+2. Click **"Link a billing account"** or **"Create Account"**
+3. Add a payment method (credit/debit card)
+4. Link it to your project
+
+**Detailed instructions:** See [ENABLE_BILLING.md](./ENABLE_BILLING.md)
+
+**Note:** You won't be charged if you stay within free tier limits (2M requests/month).
+
+### Step 3: Initial Setup
 
 ```bash
 # Login to Google Cloud
 gcloud auth login
 
-# Set your project (replace with your project ID)
+# Set your project (replace with your actual Project ID)
 gcloud config set project YOUR_PROJECT_ID
 
-# Enable required APIs
+# Verify it's set correctly
+gcloud config get-value project
+
+# Enable required APIs (will fail if billing not enabled)
 gcloud services enable run.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable artifactregistry.googleapis.com
 ```
+
+**If you get "billing account not found" error:**
+- See [ENABLE_BILLING.md](./ENABLE_BILLING.md) for help
+- Or link billing via CLI:
+  ```bash
+  gcloud billing accounts list  # Get billing account ID
+  gcloud billing projects link YOUR_PROJECT_ID --billing-account=BILLING_ACCOUNT_ID
+  ```
 
 ### Step 2: Verify Project Files
 
@@ -47,7 +83,7 @@ The following files are already configured:
 output: 'standalone',
 ```
 
-### Step 3: Deploy to Cloud Run
+### Step 4: Deploy to Cloud Run
 
 ```bash
 # Set your variables (customize these)
@@ -76,7 +112,7 @@ gcloud run deploy $SERVICE_NAME \
 
 **Wait 3-5 minutes** for the first deployment to complete.
 
-### Step 4: Get Your Service URL
+### Step 5: Get Your Service URL
 
 ```bash
 # Get the service URL
@@ -87,7 +123,7 @@ gcloud run services describe $SERVICE_NAME \
 
 Save this URL - you'll need it for the next steps.
 
-### Step 5: Set Environment Variables
+### Step 6: Set Environment Variables
 
 Set all required environment variables:
 
@@ -116,7 +152,7 @@ gcloud run services update $SERVICE_NAME \
 --update-env-vars="FIRESTORE_PRIVATE_KEY=\"-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC1234567890abcdef...\\n-----END PRIVATE KEY-----\\n\""
 ```
 
-### Step 6: Use Secrets Manager (Recommended for Production)
+### Step 7: Use Secrets Manager (Recommended for Production)
 
 For better security, use Google Secret Manager instead of environment variables:
 
@@ -151,7 +187,7 @@ gcloud run services update $SERVICE_NAME \
   --update-env-vars="NEXT_PUBLIC_BASE_URL=$SERVICE_URL,FIRESTORE_PROJECT_ID=$PROJECT_ID,FIRESTORE_CLIENT_EMAIL=your-service-account@$PROJECT_ID.iam.gserviceaccount.com"
 ```
 
-### Step 7: Update Google OAuth Redirect URI
+### Step 8: Update Google OAuth Redirect URI
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Navigate to **APIs & Services** → **Credentials**
@@ -163,7 +199,7 @@ gcloud run services update $SERVICE_NAME \
    (Replace with your actual service URL from Step 4)
 5. Click **Save**
 
-### Step 8: Test Your Deployment
+### Step 9: Test Your Deployment
 
 1. Visit your service URL: `https://gmail-merge-xxxxx-uc.a.run.app`
 2. Click "Connect Gmail" and complete OAuth flow
