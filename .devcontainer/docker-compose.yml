@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+
+    volumes:
+      # Mount the root workspace
+      - ..:/workspaces:cached
+
+      # Persist node_modules for better performance
+      - node_modules:/workspaces/node_modules
+
+    # Override default command to prevent container from exiting
+    command: sleep infinity
+
+    networks:
+      - gmail-merge
+
+    # Environment variables for development
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+
+    # Expose ports
+    ports:
+      - "3000:3000"
+
+volumes:
+  node_modules:
+
+networks:
+  gmail-merge:
+    driver: bridge
