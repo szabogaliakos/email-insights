@@ -8,6 +8,8 @@ import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { addToast } from "@heroui/toast";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import type { Selection, SortDescriptor } from "@heroui/react";
 
 type ContactResponse = {
   email?: string;
@@ -363,6 +365,13 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+const columns = [
+  { name: "ID", uid: "id", sortable: true },
+  { name: "Email Address", uid: "email", sortable: true },
+  { name: "Relationship", uid: "relationship" },
+  { name: "Actions", uid: "actions" },
+];
+
 function ContactsCard({
   title,
   description,
@@ -378,76 +387,94 @@ function ContactsCard({
   badge?: string;
   footer?: string;
 }) {
+  const [filterValue, setFilterValue] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
+  const [visibleColumns, setVisibleColumns] = useState<Selection>(new Set(["email", "relationship", "actions"]));
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
+    column: "email",
+    direction: "ascending",
+  });
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
-  const [searchTerm, setSearchTerm] = useState("");
 
-  // Filter contacts based on search term
-  const filteredContacts = useMemo(() => {
-    if (!searchTerm) return contacts;
-    return contacts.filter((contact) => contact.email.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [contacts, searchTerm]);
+  const hasSearchFilter = Boolean(filterValue);
 
-  const pages = Math.ceil(filteredContacts.length / rowsPerPage);
+  const headerColumns = useMemo(() => {
+    if (visibleColumns === "all") return columns;
+
+    return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
+  }, [visibleColumns]);
+
+  const filteredItems = useMemo(() => {
+    let filteredUsers = [...contacts];
+
+    if (hasSearchFilter) {
+      filteredUsers = filteredUsers.filter((contact) =>
+        contact.email.toLowerCase().includes(filterValue.toLowerCase())
+      );
+    }
+
+    return filteredUsers;
+  }, [contacts, filterValue, hasSearchFilter]);
+
+  const pages = Math.ceil(filteredItems.length / rowsPerPage);
 
   const items = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
 
-    return filteredContacts.slice(start, end);
-  }, [page, rowsPerPage, filteredContacts]);
+    return filteredItems.slice(start, end);
+  }, [page, filteredItems, rowsPerPage]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [rowsPerPage, searchTerm]); // Reset page when search changes
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a: LabeledContact, b: LabeledContact) => {
+      const first = a[sortDescriptor.column as keyof LabeledContact] as string;
+      const second = b[sortDescriptor.column as keyof LabeledContact] as string;
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
 
-  // Get current page contacts for selection logic
-  const currentPageContacts = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    return filteredContacts.slice(start, end);
-  }, [page, rowsPerPage, filteredContacts]);
-
-  // Check if all current page items are selected
-  const isAllPageSelected = useMemo(() => {
-    if (currentPageContacts.length === 0) return false;
-    return currentPageContacts.every((contact) => selectedContacts.has(contact.email));
-  }, [currentPageContacts, selectedContacts]);
-
-  // Check if some (but not all) current page items are selected
-  const isSomePageSelected = useMemo(() => {
-    if (currentPageContacts.length === 0) return false;
-    const selectedCount = currentPageContacts.filter((contact) => selectedContacts.has(contact.email)).length;
-    return selectedCount > 0 && selectedCount < currentPageContacts.length;
-  }, [currentPageContacts, selectedContacts]);
-
-  const handleSelectAllToggle = () => {
-    const currentPageEmails = currentPageContacts.map((contact) => contact.email);
-    if (isAllPageSelected) {
-      // Deselect all on current page
-      setSelectedContacts((prev) => {
-        const newSelected = new Set(prev);
-        currentPageEmails.forEach((email) => newSelected.delete(email));
-        return newSelected;
-      });
-    } else {
-      // Select all on current page
-      setSelectedContacts((prev) => new Set([...prev, ...currentPageEmails]));
-    }
-  };
-
-  const handleRowSelect = (email: string, isSelected: boolean) => {
-    setSelectedContacts((prev) => {
-      const newSelected = new Set(prev);
-      if (isSelected) {
-        newSelected.add(email);
-      } else {
-        newSelected.delete(email);
-      }
-      return newSelected;
+      return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
-  };
+  }, [sortDescriptor, items]);
+
+  const renderCell = useMemo(() => {
+    return (contact: LabeledContact, columnKey: React.Key) => {
+      const cellValue = contact[columnKey as keyof LabeledContact];
+
+      switch (columnKey) {
+        case "email":
+          return (
+            <div className="flex flex-col">
+              <p className="text-sm font-medium text-slate-700 font-mono lowercase">{contact.email.toLowerCase()}</p>
+            </div>
+          );
+        case "relationship":
+          return (
+            <div className="flex gap-1 flex-wrap">
+              {contact.types.map((type) => (
+                <Chip key={type} color={type === "sender" ? "primary" : "success"} variant="flat" size="sm">
+                  {type === "sender" ? "Sender" : "Recipient"}
+                </Chip>
+              ))}
+            </div>
+          );
+        case "actions":
+          return (
+            <div className="relative flex justify-end items-center gap-2">
+              <Button
+                size="sm"
+                variant="light"
+                onPress={() => handleCopySingle(contact.email)}
+                startContent={<span>📋</span>}
+              >
+                Copy
+              </Button>
+            </div>
+          );
+        default:
+          return cellValue;
+      }
+    };
+  }, []);
 
   const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
     try {
@@ -472,11 +499,168 @@ function ContactsCard({
   };
 
   const handleCopySelected = () => {
-    if (selectedContacts.size === 0) return;
+    let selectedEmails: string[];
 
-    const selectedEmails = Array.from(selectedContacts).join(", ");
-    copyToClipboard(selectedEmails, true);
+    if (selectedKeys === "all") {
+      // All items are selected
+      selectedEmails = sortedItems.map((contact) => contact.email);
+    } else {
+      // Specific items are selected
+      selectedEmails = Array.from(selectedKeys as Set<string>);
+    }
+
+    if (selectedEmails.length === 0) return;
+
+    const emails = selectedEmails.join(", ");
+    copyToClipboard(emails, true);
   };
+
+  const handleExportFilterCondition = (selectedContacts: LabeledContact[]) => {
+    const selectedEmails = selectedContacts.map((contact) => contact.email);
+    if (selectedEmails.length === 0) return;
+
+    const filterCondition = selectedEmails.join(" OR ");
+    try {
+      navigator.clipboard.writeText(filterCondition).then(() => {
+        addToast({
+          title: "Filter condition exported",
+          description: `OR condition with ${selectedEmails.length} emails copied to clipboard`,
+          color: "success",
+        });
+      });
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+      addToast({
+        title: "Copy failed",
+        description: "Unable to access clipboard. Please try again.",
+        color: "danger",
+      });
+    }
+  };
+
+  const onNextPage = useMemo(() => {
+    return () => {
+      if (page < pages) {
+        setPage(page + 1);
+      }
+    };
+  }, [page, pages]);
+
+  const onPreviousPage = useMemo(() => {
+    return () => {
+      if (page > 1) {
+        setPage(page - 1);
+      }
+    };
+  }, [page]);
+
+  const onRowsPerPageChange = useMemo(() => {
+    return (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setRowsPerPage(Number(e.target.value));
+      setPage(1);
+    };
+  }, []);
+
+  const onSearchChange = useMemo(() => {
+    return (value?: string) => {
+      if (value) {
+        setFilterValue(value);
+        setPage(1);
+      } else {
+        setFilterValue("");
+      }
+    };
+  }, []);
+
+  const onClear = useMemo(() => {
+    return () => {
+      setFilterValue("");
+      setPage(1);
+    };
+  }, []);
+
+  const topContent = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[44%]"
+            placeholder="Search by email..."
+            startContent={<span>🔍</span>}
+            value={filterValue}
+            onClear={() => onClear()}
+            onValueChange={onSearchChange}
+          />
+          <div className="flex gap-3">
+            <Dropdown>
+              <DropdownTrigger className="hidden sm:flex">
+                <Button endContent={<span>▼</span>} variant="flat">
+                  Columns
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                disallowEmptySelection
+                aria-label="Table Columns"
+                closeOnSelect={false}
+                selectedKeys={visibleColumns}
+                selectionMode="multiple"
+                onSelectionChange={setVisibleColumns}
+              >
+                {columns.slice(1).map(
+                  (
+                    column // Skip ID column
+                  ) => (
+                    <DropdownItem key={column.uid} className="capitalize">
+                      {column.name}
+                    </DropdownItem>
+                  )
+                )}
+              </DropdownMenu>
+            </Dropdown>
+          </div>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-default-400 text-small">Total {filteredItems.length} contacts</span>
+          <label className="flex items-center text-default-400 text-small">
+            Rows per page:
+            <select
+              className="bg-transparent outline-solid outline-transparent text-default-400 text-small"
+              value={rowsPerPage}
+              onChange={onRowsPerPageChange}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="20">20</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    );
+  }, [filterValue, visibleColumns, onSearchChange, onRowsPerPageChange, contacts.length, hasSearchFilter, rowsPerPage]);
+
+  const bottomContent = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <span className="w-[30%] text-small text-default-400">
+          {selectedKeys === "all" ? "All items selected" : `${selectedKeys.size} of ${filteredItems.length} selected`}
+        </span>
+        <Pagination isCompact showControls showShadow color="primary" page={page} total={pages} onChange={setPage} />
+        <div className="hidden sm:flex w-[30%] justify-end gap-2">
+          <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={onPreviousPage}>
+            Previous
+          </Button>
+          <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={onNextPage}>
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [selectedKeys, items.length, page, pages, hasSearchFilter]);
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -486,18 +670,32 @@ function ContactsCard({
           <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
-          {selectedContacts.size > 0 && (
+          {(selectedKeys === "all" || (selectedKeys as Set<string>).size > 0) && (
             <>
               <Button
                 size="sm"
                 variant="flat"
                 color="primary"
-                onClick={handleCopySelected}
+                onPress={handleCopySelected}
                 startContent={<span>📋</span>}
               >
-                Copy Selected ({selectedContacts.size})
+                Copy Selected ({selectedKeys === "all" ? sortedItems.length : (selectedKeys as Set<string>).size})
               </Button>
-              <Button size="sm" variant="ghost" color="danger" onClick={() => setSelectedContacts(new Set())}>
+              <Button
+                size="sm"
+                variant="light"
+                onPress={() =>
+                  handleExportFilterCondition(
+                    selectedKeys === "all"
+                      ? sortedItems
+                      : Array.from(selectedKeys as Set<string>).map((email) => ({ email } as LabeledContact))
+                  )
+                }
+              >
+                Export filter condition (OR) (
+                {selectedKeys === "all" ? sortedItems.length : (selectedKeys as Set<string>).size})
+              </Button>
+              <Button size="sm" variant="ghost" color="danger" onPress={() => setSelectedKeys(new Set())}>
                 Deselect All
               </Button>
             </>
@@ -515,106 +713,46 @@ function ContactsCard({
           </div>
         ) : (
           <>
-            {contacts.length > 0 && (
-              <>
-                <div className="mb-4">
-                  <Input
-                    type="text"
-                    placeholder="Search email addresses..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    startContent={<span>🔍</span>}
-                    size="sm"
-                    variant="bordered"
-                  />
-                  {searchTerm && (
-                    <p className="text-xs text-zinc-500 mt-1">
-                      Showing {filteredContacts.length} of {contacts.length} contacts
-                    </p>
-                  )}
-                </div>
-                {filteredContacts.length > 0 ? (
-                  <>
-                    <Table aria-label="Contacts table" className="max-h-96 overflow-y-auto">
-                      <TableHeader>
-                        <TableColumn>
-                          <Checkbox
-                            isSelected={isAllPageSelected}
-                            isIndeterminate={isSomePageSelected}
-                            onValueChange={handleSelectAllToggle}
-                          />
-                        </TableColumn>
-                        <TableColumn>Email Address</TableColumn>
-                        <TableColumn>Relationship</TableColumn>
-                        <TableColumn>Actions</TableColumn>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((contact) => (
-                          <TableRow key={contact.email}>
-                            <TableCell>
-                              <Checkbox
-                                isSelected={selectedContacts.has(contact.email)}
-                                onValueChange={(isSelected) => handleRowSelect(contact.email, isSelected)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium text-zinc-900">{contact.email}</span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1 flex-wrap">
-                                {contact.types.map((type) => (
-                                  <Chip
-                                    key={type}
-                                    color={type === "sender" ? "primary" : "success"}
-                                    variant="flat"
-                                    size="sm"
-                                  >
-                                    {type === "sender" ? "Sender" : "Recipient"}
-                                  </Chip>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="light"
-                                onClick={() => handleCopySingle(contact.email)}
-                                startContent={<span>📋</span>}
-                              >
-                                Copy
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <div className="flex justify-center mt-4">
-                      <Pagination
-                        showControls
-                        showShadow
-                        color="primary"
-                        page={page}
-                        total={pages}
-                        onChange={(page: number) => setPage(page)}
-                      />
-                    </div>
-                  </>
-                ) : searchTerm ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-zinc-500">No contacts match your search.</p>
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+            {contacts.length > 0 ? (
+              <Table
+                isHeaderSticky
+                aria-label="Contacts table"
+                bottomContent={bottomContent}
+                bottomContentPlacement="outside"
+                classNames={{
+                  wrapper: "",
+                }}
+                selectedKeys={selectedKeys}
+                selectionMode="multiple"
+                sortDescriptor={sortDescriptor}
+                topContent={topContent}
+                topContentPlacement="outside"
+                onSelectionChange={setSelectedKeys}
+                onSortChange={setSortDescriptor}
+              >
+                <TableHeader columns={headerColumns}>
+                  {(column) => (
+                    <TableColumn
+                      key={column.uid}
+                      align={column.uid === "actions" ? "center" : "start"}
+                      allowsSorting={column.sortable}
                     >
-                      Clear search
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
-                  </div>
-                )}
-              </>
+                      {column.name}
+                    </TableColumn>
+                  )}
+                </TableHeader>
+                <TableBody emptyContent={"No contacts found"} items={sortedItems}>
+                  {(item) => (
+                    <TableRow key={item.email}>
+                      {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
+              </div>
             )}
           </>
         )}
