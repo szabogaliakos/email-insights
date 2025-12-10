@@ -6,6 +6,7 @@ import { Chip } from "@heroui/chip";
 import { Pagination } from "@heroui/pagination";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
 
 type ContactResponse = {
   email?: string;
@@ -379,25 +380,33 @@ function ContactsCard({
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
-  const pages = Math.ceil(contacts.length / rowsPerPage);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter contacts based on search term
+  const filteredContacts = useMemo(() => {
+    if (!searchTerm) return contacts;
+    return contacts.filter((contact) => contact.email.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [contacts, searchTerm]);
+
+  const pages = Math.ceil(filteredContacts.length / rowsPerPage);
 
   const items = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
 
-    return contacts.slice(start, end);
-  }, [page, rowsPerPage, contacts]);
+    return filteredContacts.slice(start, end);
+  }, [page, rowsPerPage, filteredContacts]);
 
   useEffect(() => {
     setPage(1);
-  }, [rowsPerPage]);
+  }, [rowsPerPage, searchTerm]); // Reset page when search changes
 
   // Get current page contacts for selection logic
   const currentPageContacts = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
-    return contacts.slice(start, end);
-  }, [page, rowsPerPage, contacts]);
+    return filteredContacts.slice(start, end);
+  }, [page, rowsPerPage, filteredContacts]);
 
   // Check if all current page items are selected
   const isAllPageSelected = useMemo(() => {
@@ -488,71 +497,110 @@ function ContactsCard({
           <div className="text-center py-8">
             <p className="text-sm text-zinc-500">Loading contacts...</p>
           </div>
-        ) : contacts.length ? (
-          <>
-            <Table aria-label="Contacts table" className="max-h-96 overflow-y-auto">
-              <TableHeader>
-                <TableColumn>
-                  <Checkbox
-                    isSelected={isAllPageSelected}
-                    isIndeterminate={isSomePageSelected}
-                    onValueChange={handleSelectAllToggle}
-                  />
-                </TableColumn>
-                <TableColumn>Email Address</TableColumn>
-                <TableColumn>Relationship</TableColumn>
-                <TableColumn>Actions</TableColumn>
-              </TableHeader>
-              <TableBody>
-                {items.map((contact) => (
-                  <TableRow key={contact.email}>
-                    <TableCell>
-                      <Checkbox
-                        isSelected={selectedContacts.has(contact.email)}
-                        onValueChange={(isSelected) => handleRowSelect(contact.email, isSelected)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium text-zinc-900">{contact.email}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {contact.types.map((type) => (
-                          <Chip key={type} color={type === "sender" ? "primary" : "success"} variant="flat" size="sm">
-                            {type === "sender" ? "Sender" : "Recipient"}
-                          </Chip>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="light"
-                        onClick={() => handleCopySingle(contact.email)}
-                        startContent={<span>📋</span>}
-                      >
-                        Copy
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <div className="flex justify-center mt-4">
-              <Pagination
-                showControls
-                showShadow
-                color="primary"
-                page={page}
-                total={pages}
-                onChange={(page: number) => setPage(page)}
-              />
-            </div>
-          </>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
-          </div>
+          <>
+            {contacts.length > 0 && (
+              <>
+                <div className="mb-4">
+                  <Input
+                    type="text"
+                    placeholder="Search email addresses..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    startContent={<span>🔍</span>}
+                    size="sm"
+                    variant="bordered"
+                  />
+                  {searchTerm && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Showing {filteredContacts.length} of {contacts.length} contacts
+                    </p>
+                  )}
+                </div>
+                {filteredContacts.length > 0 ? (
+                  <>
+                    <Table aria-label="Contacts table" className="max-h-96 overflow-y-auto">
+                      <TableHeader>
+                        <TableColumn>
+                          <Checkbox
+                            isSelected={isAllPageSelected}
+                            isIndeterminate={isSomePageSelected}
+                            onValueChange={handleSelectAllToggle}
+                          />
+                        </TableColumn>
+                        <TableColumn>Email Address</TableColumn>
+                        <TableColumn>Relationship</TableColumn>
+                        <TableColumn>Actions</TableColumn>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((contact) => (
+                          <TableRow key={contact.email}>
+                            <TableCell>
+                              <Checkbox
+                                isSelected={selectedContacts.has(contact.email)}
+                                onValueChange={(isSelected) => handleRowSelect(contact.email, isSelected)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium text-zinc-900">{contact.email}</span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1 flex-wrap">
+                                {contact.types.map((type) => (
+                                  <Chip
+                                    key={type}
+                                    color={type === "sender" ? "primary" : "success"}
+                                    variant="flat"
+                                    size="sm"
+                                  >
+                                    {type === "sender" ? "Sender" : "Recipient"}
+                                  </Chip>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="light"
+                                onClick={() => handleCopySingle(contact.email)}
+                                startContent={<span>📋</span>}
+                              >
+                                Copy
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="flex justify-center mt-4">
+                      <Pagination
+                        showControls
+                        showShadow
+                        color="primary"
+                        page={page}
+                        total={pages}
+                        onChange={(page: number) => setPage(page)}
+                      />
+                    </div>
+                  </>
+                ) : searchTerm ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-zinc-500">No contacts match your search.</p>
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
       {footer ? <p className="mt-3 text-xs text-zinc-500">{footer}</p> : null}
