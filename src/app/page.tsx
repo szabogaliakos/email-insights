@@ -11,6 +11,11 @@ type ContactResponse = {
   messageSampleCount: number;
 };
 
+type LabeledContact = {
+  email: string;
+  types: ("sender" | "recipient")[];
+};
+
 export default function Home() {
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [data, setData] = useState<ContactResponse | null>(null);
@@ -161,7 +166,21 @@ export default function Home() {
   const isScanning = scanStatus?.status === "running";
   const scanTimeRemaining = scanStatus?.estimatedTimeRemaining;
 
-  const merged = useMemo(() => data?.merged ?? [], [data]);
+  const labeledContacts = useMemo((): LabeledContact[] => {
+    if (!data) return [];
+
+    const sendersSet = new Set(data.senders);
+    const recipientsSet = new Set(data.recipients);
+
+    return data.merged
+      .map((email) => {
+        const types: ("sender" | "recipient")[] = [];
+        if (sendersSet.has(email)) types.push("sender");
+        if (recipientsSet.has(email)) types.push("recipient");
+        return { email, types };
+      })
+      .sort((a, b) => a.email.localeCompare(b.email));
+  }, [data]);
 
   const isConnected = Boolean(data?.email);
 
@@ -170,10 +189,10 @@ export default function Home() {
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12">
         <header className="flex flex-col gap-2">
           <p className="text-sm font-medium text-emerald-600">Inbox mapper</p>
-          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">Merge Gmail senders and recipients</h1>
+          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">Gmail Contact Insights</h1>
           <p className="text-base text-zinc-600">
-            Connect with Google OAuth, sample your inbox, and store a deduped list of every address you&apos;ve talked
-            to. Data is persisted in Firestore for quick reloads.
+            Connect with Google OAuth, scan your inbox, and discover all the email addresses you've interacted with. See
+            who sends you emails and who you send emails to. Data is persisted in Firestore for quick reloads.
           </p>
         </header>
 
@@ -181,7 +200,7 @@ export default function Home() {
           <Stat label="Connection" value={isConnected ? "Linked" : "Offline"} />
           <Stat
             label="Addresses tracked"
-            value={merged.length.toString()}
+            value={labeledContacts.length.toString()}
             hint={isConnected ? "Distinct senders + recipients" : undefined}
           />
           <Stat label="Messages sampled" value={(data?.messageSampleCount ?? 0).toString()} />
@@ -261,16 +280,11 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="Senders" description="Who emailed you" loading={loading} items={data?.senders ?? []} />
-          <Card title="Recipients" description="Who you emailed" loading={loading} items={data?.recipients ?? []} />
-        </div>
-
-        <Card
-          title="Merged unique list"
-          description="Distinct addresses from both sides"
+        <ContactsCard
+          title="Contacts"
+          description="All email addresses you've interacted with"
           loading={loading}
-          items={merged}
+          contacts={labeledContacts}
           badge={data?.email ? `Account: ${data.email}` : undefined}
           footer={
             data?.updatedAt
@@ -336,6 +350,67 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       <p className="text-sm text-zinc-500">{label}</p>
       <p className="text-2xl font-semibold text-zinc-900">{value}</p>
       {hint ? <p className="text-xs text-zinc-500">{hint}</p> : null}
+    </div>
+  );
+}
+
+function ContactsCard({
+  title,
+  description,
+  contacts,
+  loading,
+  badge,
+  footer,
+}: {
+  title: string;
+  description?: string;
+  contacts: LabeledContact[];
+  loading?: boolean;
+  badge?: string;
+  footer?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-zinc-500">{description}</p>
+          <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
+        </div>
+        {badge ? (
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 max-h-72 overflow-y-auto rounded-md border border-dashed border-zinc-200 bg-zinc-50 p-3">
+        {loading ? (
+          <p className="text-sm text-zinc-500">Loading...</p>
+        ) : contacts.length ? (
+          <ul className="space-y-2 text-sm text-zinc-800">
+            {contacts.map((contact) => (
+              <li key={contact.email} className="rounded-md bg-white px-3 py-2 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{contact.email}</span>
+                  <div className="flex gap-1">
+                    {contact.types.map((type) => (
+                      <span
+                        key={type}
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          type === "sender" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"
+                        }`}
+                      >
+                        {type === "sender" ? "Sender" : "Recipient"}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-zinc-500">No data yet.</p>
+        )}
+      </div>
+      {footer ? <p className="mt-3 text-xs text-zinc-500">{footer}</p> : null}
     </div>
   );
 }
