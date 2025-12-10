@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
+import { Chip } from "@heroui/chip";
+import { Pagination } from "@heroui/pagination";
 
 type ContactResponse = {
   email?: string;
@@ -369,6 +372,21 @@ function ContactsCard({
   badge?: string;
   footer?: string;
 }) {
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const pages = Math.ceil(contacts.length / rowsPerPage);
+
+  const items = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    return contacts.slice(start, end);
+  }, [page, rowsPerPage, contacts]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rowsPerPage]);
+
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -381,33 +399,52 @@ function ContactsCard({
         ) : null}
       </div>
 
-      <div className="mt-4 max-h-72 overflow-y-auto rounded-md border border-dashed border-zinc-200 bg-zinc-50 p-3">
+      <div className="mt-4">
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading...</p>
+          <div className="text-center py-8">
+            <p className="text-sm text-zinc-500">Loading contacts...</p>
+          </div>
         ) : contacts.length ? (
-          <ul className="space-y-2 text-sm text-zinc-800">
-            {contacts.map((contact) => (
-              <li key={contact.email} className="rounded-md bg-white px-3 py-2 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{contact.email}</span>
-                  <div className="flex gap-1">
-                    {contact.types.map((type) => (
-                      <span
-                        key={type}
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          type === "sender" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"
-                        }`}
-                      >
-                        {type === "sender" ? "Sender" : "Recipient"}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <Table aria-label="Contacts table" className="max-h-96 overflow-y-auto">
+              <TableHeader>
+                <TableColumn>Email Address</TableColumn>
+                <TableColumn>Relationship</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {items.map((contact) => (
+                  <TableRow key={contact.email}>
+                    <TableCell>
+                      <span className="font-medium text-zinc-900">{contact.email}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {contact.types.map((type) => (
+                          <Chip key={type} color={type === "sender" ? "primary" : "success"} variant="flat" size="sm">
+                            {type === "sender" ? "Sender" : "Recipient"}
+                          </Chip>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex justify-center mt-4">
+              <Pagination
+                showControls
+                showShadow
+                color="primary"
+                page={page}
+                total={pages}
+                onChange={(page: number) => setPage(page)}
+              />
+            </div>
+          </>
         ) : (
-          <p className="text-sm text-zinc-500">No data yet.</p>
+          <div className="text-center py-8">
+            <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
+          </div>
         )}
       </div>
       {footer ? <p className="mt-3 text-xs text-zinc-500">{footer}</p> : null}
