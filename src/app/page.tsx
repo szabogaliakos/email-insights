@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
 import { Chip } from "@heroui/chip";
 import { Pagination } from "@heroui/pagination";
+import { Checkbox } from "@heroui/checkbox";
+import { Button } from "@heroui/button";
 
 type ContactResponse = {
   email?: string;
@@ -322,9 +324,11 @@ function Card({
           <p className="text-sm font-medium text-zinc-500">{description}</p>
           <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
         </div>
-        {badge ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {badge ? (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 max-h-72 overflow-y-auto rounded-md border border-dashed border-zinc-200 bg-zinc-50 p-3">
@@ -374,6 +378,7 @@ function ContactsCard({
 }) {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const pages = Math.ceil(contacts.length / rowsPerPage);
 
   const items = useMemo(() => {
@@ -387,6 +392,72 @@ function ContactsCard({
     setPage(1);
   }, [rowsPerPage]);
 
+  // Get current page contacts for selection logic
+  const currentPageContacts = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    return contacts.slice(start, end);
+  }, [page, rowsPerPage, contacts]);
+
+  // Check if all current page items are selected
+  const isAllPageSelected = useMemo(() => {
+    if (currentPageContacts.length === 0) return false;
+    return currentPageContacts.every((contact) => selectedContacts.has(contact.email));
+  }, [currentPageContacts, selectedContacts]);
+
+  // Check if some (but not all) current page items are selected
+  const isSomePageSelected = useMemo(() => {
+    if (currentPageContacts.length === 0) return false;
+    const selectedCount = currentPageContacts.filter((contact) => selectedContacts.has(contact.email)).length;
+    return selectedCount > 0 && selectedCount < currentPageContacts.length;
+  }, [currentPageContacts, selectedContacts]);
+
+  const handleSelectAllToggle = () => {
+    const currentPageEmails = currentPageContacts.map((contact) => contact.email);
+    if (isAllPageSelected) {
+      // Deselect all on current page
+      setSelectedContacts((prev) => {
+        const newSelected = new Set(prev);
+        currentPageEmails.forEach((email) => newSelected.delete(email));
+        return newSelected;
+      });
+    } else {
+      // Select all on current page
+      setSelectedContacts((prev) => new Set([...prev, ...currentPageEmails]));
+    }
+  };
+
+  const handleRowSelect = (email: string, isSelected: boolean) => {
+    setSelectedContacts((prev) => {
+      const newSelected = new Set(prev);
+      if (isSelected) {
+        newSelected.add(email);
+      } else {
+        newSelected.delete(email);
+      }
+      return newSelected;
+    });
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+    }
+  };
+
+  const handleCopySingle = (email: string) => {
+    copyToClipboard(email);
+  };
+
+  const handleCopySelected = () => {
+    if (selectedContacts.size === 0) return;
+
+    const selectedEmails = Array.from(selectedContacts).join(", ");
+    copyToClipboard(selectedEmails);
+  };
+
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -394,9 +465,22 @@ function ContactsCard({
           <p className="text-sm font-medium text-zinc-500">{description}</p>
           <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
         </div>
-        {badge ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {selectedContacts.size > 0 && (
+            <Button
+              size="sm"
+              variant="flat"
+              color="primary"
+              onClick={handleCopySelected}
+              startContent={<span>📋</span>}
+            >
+              Copy Selected ({selectedContacts.size})
+            </Button>
+          )}
+          {badge ? (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4">
@@ -408,12 +492,26 @@ function ContactsCard({
           <>
             <Table aria-label="Contacts table" className="max-h-96 overflow-y-auto">
               <TableHeader>
+                <TableColumn>
+                  <Checkbox
+                    isSelected={isAllPageSelected}
+                    isIndeterminate={isSomePageSelected}
+                    onValueChange={handleSelectAllToggle}
+                  />
+                </TableColumn>
                 <TableColumn>Email Address</TableColumn>
                 <TableColumn>Relationship</TableColumn>
+                <TableColumn>Actions</TableColumn>
               </TableHeader>
               <TableBody>
                 {items.map((contact) => (
                   <TableRow key={contact.email}>
+                    <TableCell>
+                      <Checkbox
+                        isSelected={selectedContacts.has(contact.email)}
+                        onValueChange={(isSelected) => handleRowSelect(contact.email, isSelected)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <span className="font-medium text-zinc-900">{contact.email}</span>
                     </TableCell>
@@ -425,6 +523,16 @@ function ContactsCard({
                           </Chip>
                         ))}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        onClick={() => handleCopySingle(contact.email)}
+                        startContent={<span>📋</span>}
+                      >
+                        Copy
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
