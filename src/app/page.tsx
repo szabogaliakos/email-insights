@@ -7,6 +7,7 @@ import { Pagination } from "@heroui/pagination";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
+import { addToast } from "@heroui/toast";
 
 type ContactResponse = {
   email?: string;
@@ -448,23 +449,33 @@ function ContactsCard({
     });
   };
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
     try {
       await navigator.clipboard.writeText(text);
+      addToast({
+        title: "Copied to clipboard",
+        description: isMultiple ? `${text.split(", ").length} emails copied` : text,
+        color: "success",
+      });
     } catch (err) {
       console.error("Failed to copy to clipboard:", err);
+      addToast({
+        title: "Copy failed",
+        description: "Unable to access clipboard. Please try again.",
+        color: "danger",
+      });
     }
   };
 
   const handleCopySingle = (email: string) => {
-    copyToClipboard(email);
+    copyToClipboard(email, false);
   };
 
   const handleCopySelected = () => {
     if (selectedContacts.size === 0) return;
 
     const selectedEmails = Array.from(selectedContacts).join(", ");
-    copyToClipboard(selectedEmails);
+    copyToClipboard(selectedEmails, true);
   };
 
   return (
@@ -476,15 +487,20 @@ function ContactsCard({
         </div>
         <div className="flex items-center gap-2">
           {selectedContacts.size > 0 && (
-            <Button
-              size="sm"
-              variant="flat"
-              color="primary"
-              onClick={handleCopySelected}
-              startContent={<span>📋</span>}
-            >
-              Copy Selected ({selectedContacts.size})
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="flat"
+                color="primary"
+                onClick={handleCopySelected}
+                startContent={<span>📋</span>}
+              >
+                Copy Selected ({selectedContacts.size})
+              </Button>
+              <Button size="sm" variant="ghost" color="danger" onClick={() => setSelectedContacts(new Set())}>
+                Deselect All
+              </Button>
+            </>
           )}
           {badge ? (
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
