@@ -2,6 +2,7 @@ import { google } from "googleapis";
 
 const scopes = [
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
@@ -31,11 +32,7 @@ export function getOAuthClient() {
     throw new Error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET");
   }
 
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    getRedirectUri(),
-  );
+  return new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, getRedirectUri());
 }
 
 export function buildAuthUrl() {
@@ -82,4 +79,3 @@ export async function getGmailClient(refreshToken: string) {
 
   return { gmail, auth: client, email };
 }
-

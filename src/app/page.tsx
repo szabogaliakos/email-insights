@@ -194,115 +194,169 @@ export default function Home() {
   const isConnected = Boolean(data?.email);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-50 to-white text-zinc-900">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12">
-        <header className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-emerald-600">Inbox mapper</p>
-          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">Gmail Contact Insights</h1>
-          <p className="text-base text-zinc-600">
-            Connect with Google OAuth, scan your inbox, and discover all the email addresses you've interacted with. See
-            who sends you emails and who you send emails to. Data is persisted in Firestore for quick reloads.
-          </p>
-        </header>
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-12 text-center">
+        <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+          Gmail Contact Insights
+        </h1>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-2">
+          🔍 Advanced email analytics powered by AI. Connect with Google OAuth to scan your inbox and discover complete
+          interaction patterns. Data is intelligently persisted in the cloud for instant access.
+        </p>
+        <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-purple-400 mx-auto mt-4 rounded-full"></div>
+      </div>
 
-        <section className="grid gap-4 sm:grid-cols-3">
-          <Stat label="Connection" value={isConnected ? "Linked" : "Offline"} />
-          <Stat
-            label="Addresses tracked"
-            value={labeledContacts.length.toString()}
-            hint={isConnected ? "Distinct senders + recipients" : undefined}
-          />
-          <Stat label="Messages sampled" value={(data?.messageSampleCount ?? 0).toString()} />
-        </section>
+      <section className="grid gap-6 sm:grid-cols-3 mb-8">
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 shadow-lg shadow-blue-900/20 hover:border-cyan-400/30 transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-cyan-400">🔗 Connection Status</span>
+            {isConnected ? (
+              <span className="w-3 h-3 bg-green-400 rounded-full shadow-lg shadow-green-400/50"></span>
+            ) : (
+              <span className="w-3 h-3 bg-red-400 rounded-full shadow-lg shadow-red-400/50"></span>
+            )}
+          </div>
+          <p className="text-3xl font-bold text-white mb-1">{isConnected ? "ONLINE" : "OFFLINE"}</p>
+          <p className="text-xs text-gray-400">Gmail Account Linked</p>
+        </div>
 
-        <section className="flex flex-wrap gap-3">
-          <button
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-            onClick={handleConnect}
-            disabled={!authUrl}
-          >
-            {isConnected ? "Reconnect Google" : "Connect Gmail"}
-          </button>
-          <button
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={isScanning ? handleStopScan : handleSync}
-            disabled={!isConnected || syncing}
-          >
-            {syncing ? "Starting..." : isScanning ? "Stop Scanning" : "Scan Inbox"}
-          </button>
-          <button
-            className="rounded-md border border-transparent px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900"
-            onClick={loadContacts}
-          >
-            Refresh saved data
-          </button>
-        </section>
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 shadow-lg shadow-blue-900/20 hover:border-purple-400/30 transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-purple-400">👥 Contact Database</span>
+          </div>
+          <p className="text-3xl font-bold text-white mb-1">{labeledContacts.length.toLocaleString()}</p>
+          <p className="text-xs text-gray-400">{isConnected ? "Active senders + recipients" : "Connect to scan"}</p>
+        </div>
 
-        {error ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-        ) : null}
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 shadow-lg shadow-blue-900/20 hover:border-cyan-400/30 transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-cyan-400">📧 Message Analytics</span>
+          </div>
+          <p className="text-3xl font-bold text-white mb-1">{(data?.messageSampleCount ?? 0).toLocaleString()}</p>
+          <p className="text-xs text-gray-400">Messages Processed</p>
+        </div>
+      </section>
 
-        {/* Scanning Progress */}
-        {isScanning && (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+      <div className="mb-8 flex gap-6 justify-center">
+        <Button
+          color="primary"
+          variant="bordered"
+          className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all duration-300 shadow-lg shadow-cyan-400/20 text-lg px-8 py-3"
+          onPress={handleConnect}
+          isDisabled={!authUrl}
+          size="lg"
+        >
+          {isConnected ? "🔄 Reconnect Gmail" : "🚀 Connect Gmail"}
+        </Button>
+        <Button
+          variant="bordered"
+          className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition-all duration-300 shadow-lg shadow-purple-400/20 text-lg px-8 py-3"
+          onPress={isScanning ? handleStopScan : handleSync}
+          isDisabled={!isConnected || syncing}
+          size="lg"
+        >
+          {syncing ? "⚙️ Starting..." : isScanning ? "⏹️ Stop Scanning" : "🔍 Scan Inbox"}
+        </Button>
+        <Button
+          variant="ghost"
+          className="text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300 text-lg px-8 py-3"
+          onPress={loadContacts}
+          size="lg"
+        >
+          ⟳ Refresh Data
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mb-8 p-6 bg-red-900/20 border border-red-400 rounded-lg backdrop-blur-sm text-red-300 shadow-lg shadow-red-400/10">
+          <div className="flex items-center gap-3">
+            <span className="text-red-400 text-lg">⚠️</span>
+            <span className="font-medium">System Alert: {error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Scanning Progress */}
+      {isScanning && (
+        <div className="bg-black/20 backdrop-blur-md border border-cyan-400/30 rounded-xl p-6 shadow-2xl shadow-cyan-400/10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
+                <span className="text-2xl">⏳</span>
+              </div>
               <div>
-                <h3 className="text-lg font-semibold text-zinc-900">🔄 Scanning Inbox</h3>
-                <p className="text-sm text-zinc-600">Scanning messages and collecting email addresses...</p>
+                <h3 className="text-xl font-bold text-white">🔄 Scanning Gmail Inbox</h3>
+                <p className="text-sm text-cyan-300">AI-powered contact discovery in progress...</p>
               </div>
             </div>
+          </div>
 
-            {/* Indeterminate Progress Bar */}
-            <div className="w-full bg-zinc-200 rounded-full h-2 mb-4">
-              <div className="bg-zinc-600 h-2 rounded-full animate-pulse"></div>
+          {/* Animated Progress Bar */}
+          <div className="w-full bg-gray-800 rounded-full h-3 mb-6 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse"
+              style={{ width: "60%" }}
+            ></div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <div className="text-2xl font-bold text-cyan-400 mb-1">{scanStatus?.messagesProcessed || 0}</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Messages Processed</div>
             </div>
+            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <div className="text-2xl font-bold text-purple-400 mb-1">{scanStatus?.addressesFound || 0}</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Contacts Found</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <div className="text-2xl font-bold text-green-400 mb-1">
+                {Math.floor((scanStatus?.timeElapsed || 0) / 60)}m {Math.floor((scanStatus?.timeElapsed || 0) % 60)}s
+              </div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Scan Duration</div>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-zinc-500">Messages processed:</span>
-                <span className="ml-2 font-medium">{scanStatus?.messagesProcessed || 0}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500">Addresses found:</span>
-                <span className="ml-2 font-medium">{scanStatus?.addressesFound || 0}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500">Time elapsed:</span>
-                <span className="ml-2 font-medium">
-                  {Math.floor((scanStatus?.timeElapsed || 0) / 60)}m {Math.floor((scanStatus?.timeElapsed || 0) % 60)}s
+          {scanTimeRemaining && scanTimeRemaining > 0 && (
+            <div className="mt-4 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 border border-blue-400/30 rounded-full">
+                <span className="text-blue-400">⏱️</span>
+                <span className="text-sm text-blue-300">
+                  Estimated completion: ~{Math.ceil(scanTimeRemaining / 60)} minutes
                 </span>
               </div>
             </div>
+          )}
+        </div>
+      )}
 
-            {scanTimeRemaining && scanTimeRemaining > 0 && (
-              <div className="mt-3 text-xs text-zinc-500">
-                Estimated time remaining: ~{Math.ceil(scanTimeRemaining / 60)} minutes
-              </div>
-            )}
+      {/* Completion Messages */}
+      {scanStatus && scanStatus.status !== "running" && (
+        <div className="p-6 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-400/30 rounded-xl backdrop-blur-sm text-green-300 shadow-lg shadow-green-400/10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full flex items-center justify-center">
+              <span className="text-2xl">✅</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-green-300">Scan Complete</h3>
+              <p className="text-sm text-green-200">{scanStatus.completeMessage}</p>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Completion Messages */}
-        {scanStatus && scanStatus.status !== "running" && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {scanStatus.completeMessage}
-          </div>
-        )}
-
-        <ContactsCard
-          title="Contacts"
-          description="All email addresses you've interacted with"
-          loading={loading}
-          contacts={labeledContacts}
-          badge={data?.email ? `Account: ${data.email}` : undefined}
-          footer={
-            data?.updatedAt
-              ? `Last synced ${new Date(data.updatedAt).toLocaleString()}`
-              : "Run your first sync to see results"
-          }
-        />
-      </div>
-    </main>
+      <ContactsCard
+        title="Contacts"
+        description="All email addresses you've interacted with"
+        loading={loading}
+        contacts={labeledContacts}
+        badge={data?.email ? `Account: ${data.email}` : undefined}
+        footer={
+          data?.updatedAt
+            ? `Last synced ${new Date(data.updatedAt).toLocaleString()}`
+            : "Run your first sync to see results"
+        }
+      />
+    </div>
   );
 }
 
@@ -444,17 +498,18 @@ function ContactsCard({
         case "email":
           return (
             <div className="flex flex-col">
-              <p className="text-sm font-medium text-slate-700 font-mono lowercase">{contact.email.toLowerCase()}</p>
+              <p className="text-sm font-medium text-gray-200 font-mono lowercase">{contact.email.toLowerCase()}</p>
             </div>
           );
         case "relationship":
           return (
             <div className="flex gap-1 flex-wrap">
-              {contact.types.map((type) => (
-                <Chip key={type} color={type === "sender" ? "primary" : "success"} variant="flat" size="sm">
-                  {type === "sender" ? "Sender" : "Recipient"}
-                </Chip>
-              ))}
+              <Chip key="sender" color="primary" variant="flat" size="sm" className="text-cyan-300">
+                Sender
+              </Chip>
+              <Chip key="recipient" color="secondary" variant="flat" size="sm" className="text-purple-300">
+                Recipient
+              </Chip>
             </div>
           );
         case "actions":
@@ -462,7 +517,8 @@ function ContactsCard({
             <div className="relative flex justify-end items-center gap-2">
               <Button
                 size="sm"
-                variant="light"
+                variant="ghost"
+                className="text-gray-300 hover:text-white hover:bg-white/10"
                 onPress={() => handleCopySingle(contact.email)}
                 startContent={<span>📋</span>}
               >
@@ -585,7 +641,7 @@ function ContactsCard({
         <div className="flex justify-between gap-3 items-end">
           <Input
             isClearable
-            className="w-full sm:max-w-[44%]"
+            className="w-full sm:max-w-[44%] bg-white/5 border-gray-600 text-white"
             placeholder="Search by email..."
             startContent={<span>🔍</span>}
             value={filterValue}
@@ -595,7 +651,11 @@ function ContactsCard({
           <div className="flex gap-3">
             <Dropdown>
               <DropdownTrigger className="hidden sm:flex">
-                <Button endContent={<span>▼</span>} variant="flat">
+                <Button
+                  endContent={<span>▼</span>}
+                  variant="bordered"
+                  className="border-white/30 text-white hover:bg-white/10"
+                >
                   Columns
                 </Button>
               </DropdownTrigger>
@@ -606,12 +666,13 @@ function ContactsCard({
                 selectedKeys={visibleColumns}
                 selectionMode="multiple"
                 onSelectionChange={setVisibleColumns}
+                className="bg-gray-800 border border-gray-600"
               >
                 {columns.slice(1).map(
                   (
                     column // Skip ID column
                   ) => (
-                    <DropdownItem key={column.uid} className="capitalize">
+                    <DropdownItem key={column.uid} className="capitalize text-white hover:bg-gray-700">
                       {column.name}
                     </DropdownItem>
                   )
@@ -663,19 +724,19 @@ function ContactsCard({
   }, [selectedKeys, items.length, page, pages, hasSearchFilter]);
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-blue-900/20 mt-8">
+      <div className="flex items-start justify-between gap-3 p-6 border-b border-white/10">
         <div>
-          <p className="text-sm font-medium text-zinc-500">{description}</p>
-          <h3 className="text-xl font-semibold text-zinc-900">{title}</h3>
+          <p className="text-sm font-medium text-cyan-400">{description}</p>
+          <h3 className="text-xl font-semibold text-white">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
           {(selectedKeys === "all" || (selectedKeys as Set<string>).size > 0) && (
             <>
               <Button
                 size="sm"
-                variant="flat"
-                color="primary"
+                variant="bordered"
+                className="border-cyan-400/50 text-cyan-400 hover:bg-cyan-400/10"
                 onPress={handleCopySelected}
                 startContent={<span>📋</span>}
               >
@@ -683,7 +744,8 @@ function ContactsCard({
               </Button>
               <Button
                 size="sm"
-                variant="light"
+                variant="bordered"
+                className="border-purple-400/50 text-purple-400 hover:bg-purple-400/10"
                 onPress={() =>
                   handleExportFilterCondition(
                     selectedKeys === "all"
@@ -701,15 +763,17 @@ function ContactsCard({
             </>
           )}
           {badge ? (
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>
+            <span className="rounded-full bg-gradient-to-r from-cyan-600 to-purple-600 text-white px-4 py-2 text-sm font-semibold border border-white/20 shadow-lg">
+              {badge}
+            </span>
           ) : null}
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="p-6">
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-sm text-zinc-500">Loading contacts...</p>
+            <p className="text-sm text-gray-400">Loading contacts...</p>
           </div>
         ) : (
           <>
@@ -719,9 +783,6 @@ function ContactsCard({
                 aria-label="Contacts table"
                 bottomContent={bottomContent}
                 bottomContentPlacement="outside"
-                classNames={{
-                  wrapper: "",
-                }}
                 selectedKeys={selectedKeys}
                 selectionMode="multiple"
                 sortDescriptor={sortDescriptor}
@@ -751,13 +812,13 @@ function ContactsCard({
               </Table>
             ) : (
               <div className="text-center py-8">
-                <p className="text-sm text-zinc-500">No contacts yet. Scan your inbox to get started.</p>
+                <p className="text-sm text-gray-400">No contacts yet. Scan your inbox to get started.</p>
               </div>
             )}
           </>
         )}
       </div>
-      {footer ? <p className="mt-3 text-xs text-zinc-500">{footer}</p> : null}
+      {footer ? <p className="text-xs text-gray-400 border-t border-white/10 px-6 py-4">{footer}</p> : null}
     </div>
   );
 }
