@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Define protected routes
-const protectedRoutes = ["/contacts", "/labels"];
+const protectedRoutes = ["/contacts", "/labels", "/filters"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

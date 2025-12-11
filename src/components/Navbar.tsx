@@ -65,11 +65,6 @@ export default function AppNavbar() {
       {isConnected && (
         <NavbarContent className="hidden sm:flex gap-4" justify="center">
           <NavbarItem>
-            <Link color="foreground" href="/">
-              About
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
             <Link color="foreground" href="/contacts">
               Contacts
             </Link>
@@ -77,6 +72,16 @@ export default function AppNavbar() {
           <NavbarItem>
             <Link color="foreground" href="/labels">
               Labels
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link color="foreground" href="/filters">
+              Filters
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link color="foreground" href="/">
+              Home
             </Link>
           </NavbarItem>
         </NavbarContent>
