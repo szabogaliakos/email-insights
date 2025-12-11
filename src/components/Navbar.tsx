@@ -21,11 +21,6 @@ export default function AppNavbar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    fetchAuthUrl();
-    checkConnection();
-  }, []);
-
   const fetchAuthUrl = async () => {
     const res = await fetch("/api/auth/url");
     if (!res.ok) return;
@@ -48,6 +43,11 @@ export default function AppNavbar() {
     }
   };
 
+  useEffect(() => {
+    fetchAuthUrl();
+    checkConnection();
+  }, []);
+
   const handleConnect = () => {
     if (authUrl) {
       window.location.href = authUrl;
@@ -60,37 +60,54 @@ export default function AppNavbar() {
         <AcmeLogo />
         <p className="font-bold text-foreground">Gmail Insights</p>
       </NavbarBrand>
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        <NavbarItem>
-          <Link color="foreground" href="/">
-            Contacts
-          </Link>
-        </NavbarItem>
-        <NavbarItem>
-          <Link color="foreground" href="/labels">
-            Labels
-          </Link>
-        </NavbarItem>
-      </NavbarContent>
+
+      {/* Navigation links - only show when authenticated */}
+      {isConnected && (
+        <NavbarContent className="hidden sm:flex gap-4" justify="center">
+          <NavbarItem>
+            <Link color="foreground" href="/">
+              About
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link color="foreground" href="/contacts">
+              Contacts
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link color="foreground" href="/labels">
+              Labels
+            </Link>
+          </NavbarItem>
+        </NavbarContent>
+      )}
+
       <NavbarContent justify="end">
         <NavbarItem className="hidden lg:flex">
-          {isConnected && userEmail ? (
-            <span className="text-sm text-primary font-mono">{userEmail}</span>
-          ) : (
-            <span className="text-sm text-default-500">Not connected</span>
-          )}
+          {isConnected && userEmail && <span className="text-sm text-primary font-mono">{userEmail}</span>}
         </NavbarItem>
         <NavbarItem>
-          <Button
-            as={Link}
-            color={isConnected ? "default" : "primary"}
-            variant="bordered"
-            className="border-default-200/30 text-foreground hover:bg-default/10"
-            onPress={handleConnect}
-            isDisabled={!authUrl}
-          >
-            {isConnected ? "Reconnect" : "Connect Gmail"}
-          </Button>
+          {isConnected ? (
+            <Button
+              as={Link}
+              color="danger"
+              variant="bordered"
+              className="border-danger-500/50 text-danger hover:bg-danger/10"
+              href="/api/auth/logout"
+            >
+              🚪 Logout
+            </Button>
+          ) : (
+            <Button
+              color="primary"
+              variant="solid"
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-primary-foreground"
+              onPress={handleConnect}
+              isDisabled={!authUrl}
+            >
+              Sign in with Gmail
+            </Button>
+          )}
         </NavbarItem>
       </NavbarContent>
     </Navbar>

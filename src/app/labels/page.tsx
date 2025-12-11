@@ -7,6 +7,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@herou
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
 import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
+import { useRouter } from "next/navigation";
 import type { GmailLabel } from "@/lib/firestore";
 
 const columns = [
@@ -18,9 +19,31 @@ const columns = [
 ];
 
 export default function LabelsPage() {
+  const router = useRouter();
   const [labels, setLabels] = useState<GmailLabel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    // Check authentication first
+    checkAuth();
+    loadLabels();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/gmail/data");
+      if (res.status === 401) {
+        router.push(`/?error=${encodeURIComponent("Please connect your Gmail account to access this page.")}`);
+        return;
+      }
+    } catch (err) {
+      router.push(`/?error=${encodeURIComponent("Authentication check failed.")}`);
+      return;
+    }
+    setAuthChecked(true);
+  };
 
   const setUniqueLabels = (newLabels: GmailLabel[]) => {
     const unique = Array.from(new Map(newLabels.map((l) => [l.id, l])).values());
