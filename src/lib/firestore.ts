@@ -225,6 +225,18 @@ export type GmailIMAPSettings = {
   updatedAt: string;
 };
 
+export type GmailIMAPProgress = {
+  userEmail: string;
+  mailbox: string;
+  lastMessageScanned: number; // Last completed message ID
+  totalMessages: number; // Total in mailbox
+  contactsFound: number; // Running total of unique contacts
+  chunksCompleted: number; // How many 10K chunks finished
+  isComplete: boolean; // True when reached end of mailbox
+  createdAt: string;
+  updatedAt: string;
+};
+
 // IMAP Settings Management
 export async function saveIMAPSettings(email: string, settings: Omit<GmailIMAPSettings, "createdAt" | "updatedAt">) {
   try {
@@ -265,6 +277,50 @@ export async function deleteIMAPSettings(email: string) {
   try {
     const db = getFirestore();
     await db.collection("gmailIMAPSettings").doc(email).delete();
+  } catch (error) {
+    throw error;
+  }
+}
+
+// IMAP Progress Management for chunked scanning
+export async function saveIMAPProgress(
+  email: string,
+  progress: Omit<GmailIMAPProgress, "createdAt" | "updatedAt" | "userEmail">
+) {
+  try {
+    const db = getFirestore();
+    const now = new Date().toISOString();
+    const progressWithTimestamps = {
+      ...progress,
+      userEmail: email,
+      updatedAt: now,
+    };
+    await db.collection("gmailIMAPProgress").doc(email).set(sanitizeData(progressWithTimestamps));
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      throw new Error("Firestore database not found");
+    }
+    throw error;
+  }
+}
+
+export async function loadIMAPProgress(email: string): Promise<GmailIMAPProgress | null> {
+  try {
+    const db = getFirestore();
+    const doc = await db.collection("gmailIMAPProgress").doc(email).get();
+    return doc.exists ? (doc.data() as GmailIMAPProgress) : null;
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function deleteIMAPProgress(email: string) {
+  try {
+    const db = getFirestore();
+    await db.collection("gmailIMAPProgress").doc(email).delete();
   } catch (error) {
     throw error;
   }

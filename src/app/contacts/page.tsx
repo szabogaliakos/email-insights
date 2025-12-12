@@ -35,6 +35,8 @@ export default function ContactsPage() {
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [scanMethod, setScanMethod] = useState<"api" | "imap">("imap");
+  const [imapProgress, setImapProgress] = useState<any>(null);
+  const [loadingImapProgress, setLoadingImapProgress] = useState(false);
 
   useEffect(() => {
     // Check authentication first
@@ -50,6 +52,7 @@ export default function ContactsPage() {
     }
 
     loadContacts();
+    loadIMAPProgress();
   }, []);
 
   const checkAuth = async () => {
@@ -83,6 +86,21 @@ export default function ContactsPage() {
     const json = (await res.json()) as ContactResponse;
     setData(json);
     setLoading(false);
+  };
+
+  const loadIMAPProgress = async () => {
+    setLoadingImapProgress(true);
+    try {
+      const res = await fetch("/api/gmail/settings/imap-progress");
+      if (res.ok) {
+        const progress = await res.json();
+        setImapProgress(progress);
+      }
+    } catch (error) {
+      console.error("Failed to load IMAP progress:", error);
+    } finally {
+      setLoadingImapProgress(false);
+    }
   };
 
   const [scanJobId, setScanJobId] = useState<string | null>(null);
@@ -253,6 +271,22 @@ export default function ContactsPage() {
     }
   };
 
+  const getScanButtonText = () => {
+    if (scanMethod === "imap") {
+      // For IMAP, check if there's progress to continue
+      if (imapProgress?.hasProgress && !imapProgress?.isComplete) {
+        return `▶️ Continue IMAP Scan (from message ${imapProgress.lastMessageScanned + 1})`;
+      } else if (imapProgress?.hasProgress && imapProgress?.isComplete) {
+        return "🔄 Re-scan All Emails (IMAP)";
+      } else {
+        return "🔍 Start IMAP Scan (10K messages)";
+      }
+    } else {
+      // Regular API scan
+      return `🔍 Sync Contacts (API)`;
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -352,11 +386,7 @@ export default function ContactsPage() {
             onPress={isScanning ? handleStopScan : handleSync}
             isDisabled={!isConnected || syncing}
           >
-            {syncing
-              ? "⚙️ Starting..."
-              : isScanning
-              ? "⏹️ Stop Scanning"
-              : `🔍 Sync Contacts (${scanMethod.toUpperCase()})`}
+            {syncing ? "⚙️ Starting..." : isScanning ? "⏹️ Stop Scanning" : getScanButtonText()}
           </Button>
           <Button
             variant="ghost"

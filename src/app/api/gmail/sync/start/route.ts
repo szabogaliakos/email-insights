@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/google";
 import { IMAPHeaderScanner } from "@/lib/imap-header-scanner";
-import { saveContactSnapshot } from "@/lib/firestore";
+import { saveContactSnapshot, loadContactSnapshot, saveIMAPProgress, loadIMAPProgress } from "@/lib/firestore";
 import { createJob, processJob, getJob } from "@/lib/job-manager";
 
 export async function POST(request: NextRequest) {
@@ -30,28 +30,56 @@ export async function POST(request: NextRequest) {
         // Start IMAP scanning in background (don't await)
         IMAPHeaderScanner.scanHeadersAsync(refreshToken, email, imapJobId).then(
           async (result) => {
-            console.log(`[IMAP] Success: Found ${result.contacts} contacts from ${result.scanned} messages`);
+            console.log(`[IMAP] Chunk completed: Found ${result.contacts} contacts from ${result.scanned} messages`);
 
-            // Save the result
+            // Load existing contact data to merge with
+            const existingContacts = await loadContactSnapshot(email);
+            const existingProgress = await loadIMAPProgress(email);
+
+            // Merge new chunk with existing contacts
+            const allSenders = [...new Set([...(existingContacts?.senders || []), ...result.senders])];
+
+            const allRecipients = [...new Set([...(existingContacts?.recipients || []), ...result.recipients])];
+
+            const allMerged = [...new Set([...allSenders, ...allRecipients])];
+            const totalMessagesScanned = (existingContacts?.messageSampleCount || 0) + result.scanned;
+
+            // Save merged contacts
             const snapshot = {
-              senders: result.senders,
-              recipients: result.recipients,
-              merged: result.merged,
-              messageSampleCount: result.scanned,
+              senders: allSenders,
+              recipients: allRecipients,
+              merged: allMerged,
+              messageSampleCount: totalMessagesScanned,
               updatedAt: new Date().toISOString(),
             };
             await saveContactSnapshot(email, snapshot);
+
+            // Save scan progress for resume capability
+            const progressUpdate = {
+              mailbox: existingProgress?.mailbox || "[Gmail]/All Mail", // Default mailbox
+              lastMessageScanned: result.lastMessageScanned,
+              totalMessages: existingProgress?.totalMessages || 0, // This would be the full mailbox size
+              contactsFound: allMerged.length,
+              chunksCompleted: (existingProgress?.chunksCompleted || 0) + (result.scanned > 0 ? 1 : 0),
+              isComplete: result.scanned === 0, // If no new messages were scanned, we're done
+            };
+            await saveIMAPProgress(email, progressUpdate);
 
             // Update job as completed
             IMAPHeaderScanner.updateIMAPJob(imapJobId, {
               status: "completed",
               scanned: result.scanned,
+              totalScanned: totalMessagesScanned,
               contacts: result.contacts,
+              totalContacts: allMerged.length,
               message: result.message,
-              senderCount: result.senders.length,
-              recipientCount: result.recipients.length,
+              lastMessageScanned: result.lastMessageScanned,
               completedAt: new Date().toISOString(),
             });
+
+            console.log(
+              `[IMAP] Progress saved: ${progressUpdate.lastMessageScanned} messages scanned total, ${allMerged.length} contacts`
+            );
           },
           (error) => {
             console.error("[IMAP] Scan failed:", error);

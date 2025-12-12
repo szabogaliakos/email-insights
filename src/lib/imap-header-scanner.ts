@@ -1,6 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { getGmailClient } from "./google";
-import { loadIMAPSettings } from "./firestore";
+import { loadIMAPSettings, loadIMAPProgress } from "./firestore";
 import { PasswordEncryption } from "./crypto";
 
 // In-memory storage for IMAP job progress (in production, use Redis or database)
@@ -38,7 +38,7 @@ export class IMAPHeaderScanner {
     const imapSettings = await loadIMAPSettings(email);
 
     // Use configurable options with smart defaults
-    const maxMessages = imapSettings?.maxMessages || 50000; // Default: 50K messages for comprehensive scanning
+    const maxMessages = imapSettings?.maxMessages || 10000; // Default: 10K chunked scanning
     const mailbox = imapSettings?.mailbox || "[Gmail]/All Mail"; // Default: All Mail
 
     let imapConfig: any;
@@ -185,7 +185,7 @@ export class IMAPHeaderScanner {
   }
 
   /**
-   * Async version of scanHeaders with progress tracking for UI
+   * Async version of scanHeaders with progress tracking for UI (supports resume from offset)
    */
   static async scanHeadersAsync(
     refreshToken: string,
@@ -198,6 +198,7 @@ export class IMAPHeaderScanner {
     scanned: number;
     contacts: number;
     message: string;
+    lastMessageScanned: number;
   }> {
     // Initialize job
     IMAPHeaderScanner.updateIMAPJob(jobId, {
@@ -207,10 +208,15 @@ export class IMAPHeaderScanner {
     });
 
     try {
-      // Get IMAP settings
+      // Get IMAP settings and progress
       const imapSettings = await loadIMAPSettings(email);
-      const maxMessages = imapSettings?.maxMessages || 50000;
+      const imapProgress = await loadIMAPProgress(email);
+      const maxMessages = imapSettings?.maxMessages || 10000; // 10K per scan for chunking
       const mailbox = imapSettings?.mailbox || "[Gmail]/All Mail";
+
+      // Calculate scan range (resume from last position or start from 1)
+      const lastScanned = imapProgress?.lastMessageScanned || 0;
+      const maxToScan = lastScanned + maxMessages; // Start from last + add chunk size
 
       // Setup IMAP connection
       let imapConfig: any;
@@ -240,24 +246,51 @@ export class IMAPHeaderScanner {
       await imap.mailboxOpen(mailbox);
 
       const status = await imap.status(mailbox, { messages: true });
-      const totalMessages = Math.min(status.messages || 0, maxMessages);
+      const totalMailboxMessages = status.messages || 0;
+
+      // Determine actual scan range
+      const startFrom = lastScanned + 1; // Start from next message
+      const endAt = Math.min(totalMailboxMessages, maxToScan); // Don't scan past mailbox size
+      const messagesInThisScan = Math.max(0, endAt - startFrom + 1);
 
       IMAPHeaderScanner.updateIMAPJob(jobId, {
-        totalMessages: totalMessages,
+        totalMessages: messagesInThisScan,
         mailbox: mailbox,
-        message: `Scanning ${totalMessages} messages in ${mailbox}...`,
+        message:
+          lastScanned > 0
+            ? `Continuing scan from message ${startFrom}...`
+            : `Scanning messages 1-${messagesInThisScan} in ${mailbox}...`,
       });
+
+      // Check if we've already scanned everything
+      if (messagesInThisScan <= 0) {
+        await imap.logout();
+        const senders: string[] = [];
+        const recipients: string[] = [];
+        const merged: string[] = [];
+        return {
+          senders,
+          recipients,
+          merged,
+          scanned: 0,
+          contacts: 0,
+          message: "All messages already scanned!",
+          lastMessageScanned: lastScanned,
+        };
+      }
 
       const sendersSet = new Set<string>();
       const recipientsSet = new Set<string>();
       const batchSize = 100;
       let processed = 0;
 
-      while (processed < totalMessages) {
-        const remaining = totalMessages - processed;
+      while (processed < messagesInThisScan) {
+        const remaining = messagesInThisScan - processed;
         const currentBatchSize = Math.min(batchSize, remaining);
-        const startSeq = Math.max(1, totalMessages - processed - currentBatchSize + 1);
-        const endSeq = totalMessages - processed;
+
+        // Calculate absolute sequence numbers for this chunk
+        const startSeq = startFrom + processed;
+        const endSeq = Math.min(startFrom + processed + currentBatchSize - 1, endAt);
 
         try {
           const messages = imap.fetch(`${startSeq}:${endSeq}`, {
@@ -296,13 +329,13 @@ export class IMAPHeaderScanner {
         }
 
         processed += currentBatchSize;
-        const percentComplete = Math.round((processed / totalMessages) * 100);
+        const percentComplete = Math.round((processed / messagesInThisScan) * 100);
 
         IMAPHeaderScanner.updateIMAPJob(jobId, {
           processedMessages: processed,
           percentComplete: percentComplete,
           contactsFound: sendersSet.size + recipientsSet.size,
-          message: `Processed ${processed}/${totalMessages} messages (${percentComplete}%)`,
+          message: `Processed ${processed}/${messagesInThisScan} messages (${percentComplete}%)`,
         });
       }
 
@@ -316,9 +349,10 @@ export class IMAPHeaderScanner {
         senders,
         recipients,
         merged,
-        scanned: totalMessages,
+        scanned: messagesInThisScan,
         contacts: merged.length,
-        message: `IMAP scan complete: Found ${merged.length} unique contacts from ${totalMessages} messages`,
+        message: `IMAP scan complete: Found ${merged.length} unique contacts from ${messagesInThisScan} messages`,
+        lastMessageScanned: endAt,
       };
     } catch (error: any) {
       IMAPHeaderScanner.updateIMAPJob(jobId, {

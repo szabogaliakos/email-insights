@@ -112,7 +112,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const url = new URL(request.url);
+  const deleteProgress = url.searchParams.get("progress") === "true";
+
   try {
     const cookieStore = await cookies();
     const refreshToken = cookieStore.get("gmail_refresh_token")?.value;
@@ -122,14 +125,24 @@ export async function DELETE() {
     }
 
     const { email } = await getGmailClient(refreshToken);
-    await deleteIMAPSettings(email);
 
-    return NextResponse.json({
-      success: true,
-      message: "IMAP settings removed. IMAP scanning will use OAuth instead.",
-    });
+    if (deleteProgress) {
+      // Delete progress to reset scan
+      await deleteIMAPProgress(email);
+      return NextResponse.json({
+        success: true,
+        message: "IMAP progress reset. Next scan will start from beginning.",
+      });
+    } else {
+      // Delete settings
+      await deleteIMAPSettings(email);
+      await deleteIMAPProgress(email); // Also delete progress
+      return NextResponse.json({
+        success: true,
+        message: "IMAP settings and progress removed.",
+      });
+    }
   } catch (error: any) {
-    console.error("Delete IMAP settings error:", error);
-    return NextResponse.json({ error: "Failed to delete IMAP settings" }, { status: 500 });
+    console.error("Delete IMAP settings/progress error:", error);
+    return NextResponse.json({ error: "Failed to delete IMAP data" }, { status: 500 });
   }
-}
