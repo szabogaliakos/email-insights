@@ -478,9 +478,65 @@ function ContactsTable({
     copyToClipboard(email, false);
   };
 
+  const handleDeselectAll = () => {
+    setSelectedKeys(new Set([]));
+  };
+
   const topContent = useMemo(() => {
+    const hasSelection = selectedKeys === "all" || (selectedKeys as Set<string>).size > 0;
+
     return (
       <div className="flex flex-col gap-4">
+        {/* Selection Actions - Only show when contacts are selected */}
+        {hasSelection && (
+          <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex gap-2 items-center">
+              <div className="text-sm font-medium text-foreground mr-2">
+                {selectedKeys === "all"
+                  ? `All ${filteredItems.length} contacts selected`
+                  : `${(selectedKeys as Set<string>).size} of ${filteredItems.length} contacts selected`}
+              </div>
+              <Button
+                size="sm"
+                variant="flat"
+                color="primary"
+                className="text-primary"
+                onPress={() => {
+                  const contactKeys =
+                    selectedKeys === "all"
+                      ? filteredItems.map((contact) => contact.email)
+                      : Array.from(selectedKeys as Set<string>);
+                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                  const emails = contacts.map((contact) => contact.email).join(", ");
+                  copyToClipboard(emails, true);
+                }}
+              >
+                📋 Copy All
+              </Button>
+              <Button
+                size="sm"
+                variant="flat"
+                color="secondary"
+                className="text-secondary"
+                onPress={() => {
+                  const contactKeys =
+                    selectedKeys === "all"
+                      ? filteredItems.map((contact) => contact.email)
+                      : Array.from(selectedKeys as Set<string>);
+                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                  const emails = contacts.map((contact) => contact.email).join(" OR ");
+                  copyToClipboard(emails, true);
+                }}
+              >
+                🏷️ Copy with OR
+              </Button>
+              <Button size="sm" variant="ghost" onPress={handleDeselectAll}>
+                ❌ Deselect All
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between gap-3 items-end">
           <Input
             isClearable
@@ -513,18 +569,14 @@ function ContactsTable({
         </div>
       </div>
     );
-  }, [filterValue, contacts.length, hasSearchFilter, rowsPerPage]);
+  }, [filterValue, contacts.length, hasSearchFilter, rowsPerPage, selectedKeys, filteredItems.length]);
 
   const bottomContent = useMemo(() => {
     return (
       <div className="py-2 px-2 flex justify-between items-center">
-        <span className="w-[30%] text-small text-default-400">
-          {selectedKeys === "all"
-            ? "All items selected"
-            : `${(selectedKeys as Set<string>).size} of ${filteredItems.length} selected`}
-        </span>
+        <span className="text-small text-default-400">{filteredItems.length} total contacts</span>
         <Pagination isCompact showControls showShadow color="primary" page={page} total={pages} onChange={setPage} />
-        <div className="hidden sm:flex w-[30%] justify-end gap-2">
+        <div className="hidden sm:flex justify-end gap-2">
           <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={() => setPage(page > 1 ? page - 1 : 1)}>
             Previous
           </Button>
@@ -539,7 +591,7 @@ function ContactsTable({
         </div>
       </div>
     );
-  }, [selectedKeys, filteredItems.length, page, pages]);
+  }, [filteredItems.length, page, pages]);
 
   return (
     <div className="bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl shadow-2xl">
