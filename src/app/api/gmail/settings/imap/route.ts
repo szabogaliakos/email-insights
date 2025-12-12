@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getGmailClient } from "@/lib/google";
-import { saveIMAPSettings, loadIMAPSettings, deleteIMAPSettings, GmailIMAPSettings } from "@/lib/firestore";
+import {
+  saveIMAPSettings,
+  loadIMAPSettings,
+  deleteIMAPSettings,
+  deleteIMAPProgress,
+  GmailIMAPSettings,
+} from "@/lib/firestore";
 import { PasswordEncryption } from "@/lib/crypto";
 
 export async function GET() {
@@ -146,3 +152,4 @@ export async function DELETE(request: NextRequest) {
     console.error("Delete IMAP settings/progress error:", error);
     return NextResponse.json({ error: "Failed to delete IMAP data" }, { status: 500 });
   }
+}

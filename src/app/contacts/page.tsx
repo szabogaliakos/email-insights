@@ -27,9 +27,43 @@ type LabeledContact = {
   types: ("sender" | "recipient")[];
 };
 
+interface Contact {
+  email: string;
+  types: ("sender" | "recipient")[];
+}
+
+interface ContactsResponse {
+  contacts: Contact[];
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  searchQuery: string;
+}
+
+interface IMAPProgress {
+  hasProgress: boolean;
+  lastMessageScanned: number;
+  totalMessages: number;
+  contactsFound: number;
+  chunksCompleted: number;
+  isComplete: boolean;
+  mailbox: string;
+}
+
+interface StatsResponse {
+  totalContacts: number;
+  messagesProcessed: number;
+  sendersCount: number;
+  recipientsCount: number;
+  lastUpdated: string | null;
+}
+
 export default function ContactsPage() {
   const router = useRouter();
-  const [data, setData] = useState<ContactResponse | null>(null);
+  const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
+  const [statsData, setStatsData] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +71,10 @@ export default function ContactsPage() {
   const [scanMethod, setScanMethod] = useState<"api" | "imap">("imap");
   const [imapProgress, setImapProgress] = useState<any>(null);
   const [loadingImapProgress, setLoadingImapProgress] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check authentication first
@@ -51,9 +89,17 @@ export default function ContactsPage() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    loadContacts();
+    // Don't load contacts initially - let the useEffect below handle it when auth is checked
     loadIMAPProgress();
+    loadStats();
   }, []);
+
+  // Load contacts when page or search changes
+  useEffect(() => {
+    if (authChecked) {
+      loadContacts(currentPage, searchQuery);
+    }
+  }, [currentPage, authChecked]);
 
   const checkAuth = async () => {
     try {
@@ -69,22 +115,22 @@ export default function ContactsPage() {
     setAuthChecked(true);
   };
 
-  const loadContacts = async () => {
+  const loadContacts = async (page = currentPage, search = searchQuery) => {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/gmail/data");
+    const res = await fetch(`/api/contacts?page=${page}&limit=${rowsPerPage}&search=${encodeURIComponent(search)}`);
     if (res.status === 401) {
       setError("Please connect Gmail first.");
       setLoading(false);
       return;
     }
     if (!res.ok) {
-      setError("Unable to load saved data");
+      setError("Unable to load contacts");
       setLoading(false);
       return;
     }
-    const json = (await res.json()) as ContactResponse;
-    setData(json);
+    const json = (await res.json()) as ContactsResponse;
+    setContactsData(json);
     setLoading(false);
   };
 
@@ -100,6 +146,19 @@ export default function ContactsPage() {
       console.error("Failed to load IMAP progress:", error);
     } finally {
       setLoadingImapProgress(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const res = await fetch("/api/contacts/stats");
+      if (res.ok) {
+        const stats = (await res.json()) as StatsResponse;
+        setStatsData(stats);
+      }
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+      // Don't show error for stats loading failure
     }
   };
 
@@ -298,22 +357,16 @@ export default function ContactsPage() {
   const scanTimeRemaining = scanStatus?.estimatedTimeRemaining;
 
   const labeledContacts = useMemo((): LabeledContact[] => {
-    if (!data) return [];
+    if (!contactsData?.contacts) return [];
 
-    const sendersSet = new Set(data.senders);
-    const recipientsSet = new Set(data.recipients);
+    // For server-side pagination, we work directly with the Contact[] array
+    return contactsData.contacts.map((contact: Contact) => ({
+      email: contact.email,
+      types: contact.types,
+    }));
+  }, [contactsData]);
 
-    return data.merged
-      .map((email) => {
-        const types: ("sender" | "recipient")[] = [];
-        if (sendersSet.has(email)) types.push("sender");
-        if (recipientsSet.has(email)) types.push("recipient");
-        return { email, types };
-      })
-      .sort((a, b) => a.email.localeCompare(b.email));
-  }, [data]);
-
-  const isConnected = Boolean(data?.email);
+  const isConnected = true; // If we got here, user is authenticated
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -339,7 +392,7 @@ export default function ContactsPage() {
               <span className="w-3 h-3 bg-danger rounded-full shadow-lg shadow-danger/50"></span>
             )}
           </div>
-          <p className="text-3xl font-bold text-foreground mb-1">{labeledContacts.length.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-foreground mb-1">{(statsData?.totalContacts ?? 0).toLocaleString()}</p>
           <p className="text-xs text-default-500">Unique senders + recipients</p>
         </div>
 
@@ -348,7 +401,9 @@ export default function ContactsPage() {
             <span className="text-sm font-medium text-secondary">📈 Message Analytics</span>
             <span className="text-2xl">📊</span>
           </div>
-          <p className="text-3xl font-bold text-foreground mb-1">{(data?.messageSampleCount ?? 0).toLocaleString()}</p>
+          <p className="text-3xl font-bold text-foreground mb-1">
+            {(statsData?.messagesProcessed ?? 0).toLocaleString()}
+          </p>
           <p className="text-xs text-default-500">Messages processed</p>
         </div>
       </section>
@@ -391,7 +446,7 @@ export default function ContactsPage() {
           <Button
             variant="ghost"
             className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-lg px-8 py-3"
-            onPress={loadContacts}
+            onPress={() => loadContacts()}
           >
             ⟳ Refresh
           </Button>
@@ -503,10 +558,15 @@ export default function ContactsPage() {
         description="All email addresses you've interacted with"
         loading={loading}
         contacts={labeledContacts}
-        badge={data?.email ? `Account: ${data.email}` : undefined}
-        footer={
-          data?.updatedAt ? `Last synced ${new Date(data.updatedAt).toLocaleString()}` : "Sync to see your contacts"
-        }
+        totalCount={contactsData?.totalCount || 0}
+        currentPage={currentPage}
+        totalPages={contactsData?.totalPages || 0}
+        onPageChange={setCurrentPage}
+        onSearchChange={(search) => {
+          setSearchQuery(search);
+          setCurrentPage(1); // Reset to first page when searching
+          loadContacts(1, search);
+        }}
       />
     </div>
   );
@@ -523,24 +583,29 @@ function ContactsTable({
   description,
   contacts,
   loading,
-  badge,
-  footer,
+  totalCount,
+  currentPage,
+  totalPages,
+  onPageChange,
+  onSearchChange,
 }: {
   title: string;
   description?: string;
   contacts: LabeledContact[];
   loading?: boolean;
-  badge?: string;
-  footer?: string;
+  totalCount?: number;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
+  onSearchChange?: (search: string) => void;
 }) {
-  const [filterValue, setFilterValue] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
-  const [rowsPerPage, setRowsPerPage] = useState(50);
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
     column: "email",
     direction: "ascending",
   });
-  const [page, setPage] = useState(1);
+  const [debouncedSearchTimer, setDebouncedSearchTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Modal states for "Create label and automation"
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
@@ -549,42 +614,56 @@ function ContactsTable({
   const [archiveEnabled, setArchiveEnabled] = useState(true);
   const [creatingAutomation, setCreatingAutomation] = useState(false);
 
-  const hasSearchFilter = Boolean(filterValue);
-
   const headerColumns = useMemo(() => {
     return columns;
   }, []);
 
-  const filteredItems = useMemo(() => {
-    let filteredUsers = [...contacts];
-
-    if (hasSearchFilter) {
-      filteredUsers = filteredUsers.filter((contact) =>
-        contact.email.toLowerCase().includes(filterValue.toLowerCase())
-      );
-    }
-
-    return filteredUsers;
-  }, [contacts, filterValue, hasSearchFilter]);
-
-  const pages = Math.ceil(filteredItems.length / rowsPerPage);
-
-  const items = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-
-    return filteredItems.slice(start, end);
-  }, [page, filteredItems, rowsPerPage]);
-
+  // For server-side pagination, contacts are already filtered, just sort them locally
   const sortedItems = useMemo(() => {
-    return [...items].sort((a: LabeledContact, b: LabeledContact) => {
+    return [...contacts].sort((a: LabeledContact, b: LabeledContact) => {
       const first = a[sortDescriptor.column as keyof LabeledContact] as string;
       const second = b[sortDescriptor.column as keyof LabeledContact] as string;
       const cmp = first < second ? -1 : first > second ? 1 : 0;
 
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
-  }, [sortDescriptor, items]);
+  }, [contacts, sortDescriptor]);
+
+  // Debounced search function
+  const handleSearchInput = (value: string) => {
+    setSearchInput(value);
+
+    // Clear existing timer
+    if (debouncedSearchTimer) {
+      clearTimeout(debouncedSearchTimer);
+    }
+
+    // Set new timer to debounce search
+    const timer = setTimeout(() => {
+      if (onSearchChange) onSearchChange(value);
+    }, 500); // 500ms delay after user stops typing
+
+    setDebouncedSearchTimer(timer);
+  };
+
+  // Clear search - immediate call
+  const handleClearSearch = () => {
+    setSearchInput("");
+    if (debouncedSearchTimer) {
+      clearTimeout(debouncedSearchTimer);
+      setDebouncedSearchTimer(null);
+    }
+    if (onSearchChange) onSearchChange("");
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debouncedSearchTimer) {
+        clearTimeout(debouncedSearchTimer);
+      }
+    };
+  }, [debouncedSearchTimer]);
 
   const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
     try {
@@ -664,8 +743,8 @@ function ContactsTable({
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="text-sm font-medium text-foreground">
                 {selectedKeys === "all"
-                  ? `All ${filteredItems.length} contacts selected`
-                  : `${(selectedKeys as Set<string>).size} of ${filteredItems.length} contacts selected`}
+                  ? `All ${contacts.length} contacts selected`
+                  : `${(selectedKeys as Set<string>).size} of ${contacts.length} contacts selected`}
               </div>
               <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                 <Button
@@ -676,10 +755,10 @@ function ContactsTable({
                   onPress={() => {
                     const contactKeys =
                       selectedKeys === "all"
-                        ? filteredItems.map((contact) => contact.email)
+                        ? contacts.map((contact) => contact.email)
                         : Array.from(selectedKeys as Set<string>);
-                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                    const emails = contacts.map((contact) => contact.email).join(", ");
+                    const selectedContacts = contacts.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = selectedContacts.map((contact) => contact.email).join(", ");
                     copyToClipboard(emails, true);
                   }}
                 >
@@ -693,10 +772,10 @@ function ContactsTable({
                   onPress={() => {
                     const contactKeys =
                       selectedKeys === "all"
-                        ? filteredItems.map((contact) => contact.email)
+                        ? contacts.map((contact) => contact.email)
                         : Array.from(selectedKeys as Set<string>);
-                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                    const emails = contacts.map((contact) => contact.email).join(" OR ");
+                    const selectedContacts = contacts.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = selectedContacts.map((contact) => contact.email).join(" OR ");
                     copyToClipboard(emails, true);
                   }}
                 >
@@ -711,10 +790,10 @@ function ContactsTable({
                     // Pre-populate the automation query with selected contacts
                     const contactKeys =
                       selectedKeys === "all"
-                        ? filteredItems.map((contact) => contact.email)
+                        ? contacts.map((contact) => contact.email)
                         : Array.from(selectedKeys as Set<string>);
-                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                    const emails = contacts.map((contact) => contact.email).join(" OR ");
+                    const selectedContacts = contacts.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = selectedContacts.map((contact) => contact.email).join(" OR ");
                     setAutomationQuery(emails);
                     setLabelName(""); // Reset label name
                     setArchiveEnabled(true); // Default to archive enabled
@@ -735,62 +814,46 @@ function ContactsTable({
             </div>
           </div>
         )}
-
-        <div className="flex justify-between gap-3 items-end">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%] bg-default/5 border-default-300"
-            placeholder="Search by email..."
-            startContent="🔍"
-            value={filterValue}
-            onClear={() => setFilterValue("")}
-            onValueChange={setFilterValue}
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-default-400 text-small">Total {filteredItems.length} contacts</span>
-          <label className="flex items-center text-default-400 text-small">
-            Rows per page:
-            <select
-              className="bg-transparent outline-solid outline-transparent text-default-400 text-small ml-2"
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(Number(e.target.value))}
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="15">15</option>
-              <option value="20">20</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-          </label>
-        </div>
       </div>
     );
-  }, [filterValue, contacts.length, hasSearchFilter, rowsPerPage, selectedKeys, filteredItems.length]);
+  }, [searchInput, contacts.length, selectedKeys]);
 
   const bottomContent = useMemo(() => {
     return (
       <div className="py-2 px-2 flex justify-between items-center">
-        <span className="text-small text-default-400">{filteredItems.length} total contacts</span>
-        <Pagination isCompact showControls showShadow color="primary" page={page} total={pages} onChange={setPage} />
+        <span className="text-small text-default-400">
+          Page {currentPage} of {totalPages} • Total: {totalCount?.toLocaleString() || 0} contacts
+        </span>
+        <Pagination
+          isCompact
+          showControls
+          showShadow
+          color="primary"
+          page={currentPage || 1}
+          total={totalPages || 1}
+          onChange={onPageChange}
+        />
         <div className="hidden sm:flex justify-end gap-2">
-          <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={() => setPage(page > 1 ? page - 1 : 1)}>
+          <Button
+            isDisabled={(currentPage || 1) <= 1}
+            size="sm"
+            variant="flat"
+            onPress={() => onPageChange && onPageChange((currentPage || 1) - 1)}
+          >
             Previous
           </Button>
           <Button
-            isDisabled={pages === 1}
+            isDisabled={(currentPage || 1) >= (totalPages || 1)}
             size="sm"
             variant="flat"
-            onPress={() => setPage(page < pages ? page + 1 : pages)}
+            onPress={() => onPageChange && onPageChange((currentPage || 1) + 1)}
           >
             Next
           </Button>
         </div>
       </div>
     );
-  }, [filteredItems.length, page, pages]);
+  }, [currentPage, totalPages, totalCount, onPageChange]);
 
   return (
     <div className="bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl shadow-2xl">
@@ -798,19 +861,39 @@ function ContactsTable({
         <div>
           <p className="text-sm font-medium text-primary">{description}</p>
           <h3 className="text-xl font-semibold text-foreground">{title}</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          {badge ? (
-            <span className="rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-primary-foreground px-4 py-2 text-sm font-semibold border border-default-200 shadow-lg">
-              {badge}
-            </span>
+          {totalCount ? (
+            <p className="text-sm text-default-600 mt-1">
+              Showing page {currentPage} of {totalPages} • Total: {totalCount.toLocaleString()} contacts
+            </p>
           ) : null}
+        </div>
+      </div>
+
+      {/* Always visible search above the table */}
+      <div className="p-6 pb-0">
+        <div className="flex justify-between gap-3 items-end mb-4">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[44%] bg-default/5 border-default-300"
+            placeholder="Search by email..."
+            startContent="🔍"
+            endContent={
+              loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+              ) : null
+            }
+            value={searchInput}
+            onClear={handleClearSearch}
+            onValueChange={handleSearchInput}
+            isDisabled={loading}
+          />
         </div>
       </div>
 
       <div className="p-6">
         {loading ? (
-          <div className="text-center py-8">
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
             <p className="text-sm text-default-500">Loading contacts...</p>
           </div>
         ) : (
@@ -855,14 +938,13 @@ function ContactsTable({
                 </TableBody>
               </Table>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-default-500">No contacts yet. Scan your inbox to get started.</p>
+              <div className="text-center py-16">
+                <div className="text-sm text-default-500">No contacts yet. Scan your inbox to get started.</div>
               </div>
             )}
           </>
         )}
       </div>
-      {footer ? <p className="text-xs text-default-500 border-t border-default-200 px-6 py-4">{footer}</p> : null}
 
       {/* Create Label and Automation Modal */}
       <Modal isOpen={automationModalOpen} onOpenChange={setAutomationModalOpen} size="lg">
