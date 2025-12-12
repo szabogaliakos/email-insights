@@ -6,7 +6,8 @@ import { Chip } from "@heroui/chip";
 import { Pagination } from "@heroui/pagination";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Input, Textarea } from "@heroui/input";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { addToast } from "@heroui/toast";
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
 import { useRouter } from "next/navigation";
@@ -378,6 +379,13 @@ function ContactsTable({
   });
   const [page, setPage] = useState(1);
 
+  // Modal states for "Create label and automation"
+  const [automationModalOpen, setAutomationModalOpen] = useState(false);
+  const [labelName, setLabelName] = useState("");
+  const [automationQuery, setAutomationQuery] = useState("");
+  const [archiveEnabled, setArchiveEnabled] = useState(true);
+  const [creatingAutomation, setCreatingAutomation] = useState(false);
+
   const hasSearchFilter = Boolean(filterValue);
 
   const headerColumns = useMemo(() => {
@@ -414,6 +422,28 @@ function ContactsTable({
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
   }, [sortDescriptor, items]);
+
+  const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      addToast({
+        title: "Copied to clipboard",
+        description: isMultiple ? `${text.split(", ").length} emails copied` : text,
+        color: "success",
+      });
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+      addToast({
+        title: "Copy failed",
+        description: "Unable to access clipboard. Please try again.",
+        color: "danger",
+      });
+    }
+  };
+
+  const handleCopySingle = (email: string) => {
+    copyToClipboard(email, false);
+  };
 
   const renderCell = useMemo(() => {
     return (contact: LabeledContact, columnKey: React.Key) => {
@@ -455,28 +485,6 @@ function ContactsTable({
       }
     };
   }, [contacts]);
-
-  const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      addToast({
-        title: "Copied to clipboard",
-        description: isMultiple ? `${text.split(", ").length} emails copied` : text,
-        color: "success",
-      });
-    } catch (err) {
-      console.error("Failed to copy to clipboard:", err);
-      addToast({
-        title: "Copy failed",
-        description: "Unable to access clipboard. Please try again.",
-        color: "danger",
-      });
-    }
-  };
-
-  const handleCopySingle = (email: string) => {
-    copyToClipboard(email, false);
-  };
 
   const handleDeselectAll = () => {
     setSelectedKeys(new Set([]));
@@ -529,6 +537,27 @@ function ContactsTable({
                 }}
               >
                 🏷️ Copy with OR
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                color="success"
+                className="text-white"
+                onPress={() => {
+                  // Pre-populate the automation query with selected contacts
+                  const contactKeys =
+                    selectedKeys === "all"
+                      ? filteredItems.map((contact) => contact.email)
+                      : Array.from(selectedKeys as Set<string>);
+                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                  const emails = contacts.map((contact) => contact.email).join(" OR ");
+                  setAutomationQuery(emails);
+                  setLabelName(""); // Reset label name
+                  setArchiveEnabled(true); // Default to archive enabled
+                  setAutomationModalOpen(true);
+                }}
+              >
+                🚀 Create label and automation
               </Button>
               <Button size="sm" variant="ghost" onPress={handleDeselectAll}>
                 ❌ Deselect All
@@ -664,6 +693,145 @@ function ContactsTable({
         )}
       </div>
       {footer ? <p className="text-xs text-default-500 border-t border-default-200 px-6 py-4">{footer}</p> : null}
+
+      {/* Create Label and Automation Modal */}
+      <Modal isOpen={automationModalOpen} onOpenChange={setAutomationModalOpen} size="lg">
+        <ModalContent className="bg-gray-800 border border-gray-600">
+          <ModalHeader className="text-white bg-gray-800">🚀 Create Label and Automation</ModalHeader>
+          <ModalBody className="bg-gray-800">
+            <p className="text-sm text-gray-300 mb-6">
+              Create a Gmail label and automated filter for the selected contacts. This will:
+            </p>
+            <ul className="text-sm text-gray-300 mb-6 ml-4 space-y-1">
+              <li>• Create a new Gmail label with the name you specify</li>
+              <li>• Set up an automated filter to apply this label to emails from these contacts</li>
+              <li>• Optionally archive emails from these contacts (remove from inbox)</li>
+            </ul>
+
+            <Input
+              label="Label Name"
+              placeholder="e.g., Important Contacts"
+              value={labelName}
+              onValueChange={setLabelName}
+              required
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 mb-4"
+              description="This will be the name of the new Gmail label"
+            />
+
+            <Textarea
+              label="Filter Query"
+              value={automationQuery}
+              onValueChange={setAutomationQuery}
+              required
+              readOnly
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 mb-4"
+              description="Pre-populated with selected contacts (OR separated)"
+            />
+
+            <Checkbox isSelected={archiveEnabled} onValueChange={setArchiveEnabled} className="mb-4">
+              <span className="text-sm text-gray-300">
+                ✓ Archive emails automatically (remove from inbox when labeled)
+              </span>
+            </Checkbox>
+
+            <div className="text-xs text-gray-400 bg-gray-900 rounded p-3">
+              <strong>Note:</strong> This will create both a new Gmail label and a filter that automatically applies
+              this label to emails from the selected contacts. You can modify or delete these later from the Labels and
+              Filters pages.
+            </div>
+          </ModalBody>
+          <ModalFooter className="bg-gray-800 border-t border-gray-600">
+            <Button
+              variant="ghost"
+              onPress={() => {
+                setAutomationModalOpen(false);
+                setLabelName("");
+                setAutomationQuery("");
+                setArchiveEnabled(true);
+              }}
+              className="text-gray-300 hover:text-white hover:bg-gray-600"
+            >
+              Cancel
+            </Button>
+            <Button
+              color="success"
+              onPress={async () => {
+                if (!labelName.trim() || !automationQuery.trim()) {
+                  addToast({
+                    title: "Validation error",
+                    description: "Label name and filter query are required",
+                    color: "danger",
+                  });
+                  return;
+                }
+
+                setCreatingAutomation(true);
+
+                try {
+                  // Create the automation by calling the Firestore filters API with the label creation logic
+                  const res = await fetch("/api/firestore/filters", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: `Auto-label: ${labelName}`,
+                      query: automationQuery,
+                      labelIds: [], // We'll create the label inline in the API
+                      archive: archiveEnabled,
+                      createLabel: true,
+                      labelName: labelName,
+                    }),
+                  });
+
+                  if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.details || data.error || "Failed to create automation");
+                  }
+
+                  const result = await res.json();
+
+                  // Now publish the filter to Gmail (which will also create the label)
+                  const publishRes = await fetch("/api/firestore/filters", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ filterId: result.filter.id }),
+                  });
+
+                  if (!publishRes.ok) {
+                    const publishData = await publishRes.json();
+                    throw new Error(publishData.details || publishData.error || "Failed to publish to Gmail");
+                  }
+
+                  setAutomationModalOpen(false);
+                  setLabelName("");
+                  setAutomationQuery("");
+                  setArchiveEnabled(true);
+
+                  addToast({
+                    title: "Automation created!",
+                    description: `Label "${labelName}" and filter created successfully. Emails from selected contacts will now be automatically labeled${
+                      archiveEnabled ? " and archived" : ""
+                    }.`,
+                    color: "success",
+                  });
+                } catch (error: any) {
+                  console.error("Failed to create automation:", error);
+                  addToast({
+                    title: "Creation failed",
+                    description: error.message || "Failed to create label and automation",
+                    color: "danger",
+                  });
+                } finally {
+                  setCreatingAutomation(false);
+                }
+              }}
+              isLoading={creatingAutomation}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {creatingAutomation ? "Creating..." : "🚀 Create Automation"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

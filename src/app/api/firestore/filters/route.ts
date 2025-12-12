@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { loadFilters, saveFilter, deleteFilter, type GmailFilter, loadLabels } from "@/lib/firestore";
+import { loadFilters, saveFilter, deleteFilter, saveLabel, type GmailFilter, loadLabels } from "@/lib/firestore";
 import { getGmailClient } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +52,28 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { name, query, labelIds, archive } = data;
+    const { name, query, labelIds, archive, createLabel, labelName } = data;
 
     if (!name || !query) {
       return NextResponse.json({ error: "name and query are required" }, { status: 400 });
+    }
+
+    // If createLabel is requested, create the label in Firestore first
+    let finalLabelIds = labelIds || [];
+    if (createLabel && labelName) {
+      const labelId = `label_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Save the label to Firestore
+      const newLabel = {
+        id: labelId,
+        name: labelName,
+        type: "user" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await saveLabel(email, newLabel);
+      finalLabelIds = [labelId];
     }
 
     const now = new Date().toISOString();
@@ -63,7 +81,7 @@ export async function POST(request: NextRequest) {
       id: `filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name,
       query,
-      labelIds,
+      labelIds: finalLabelIds,
       archive,
       createdAt: now,
       updatedAt: now,
