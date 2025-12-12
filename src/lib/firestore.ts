@@ -17,7 +17,7 @@ function parsePrivateKey(key: string | undefined): string {
   // Handle both escaped and unescaped newlines
   // Replace \\n (escaped) with actual newlines
   // Also handle if it's already a multi-line string
-  let parsed = key.replace(/\\n/g, "\n");
+  const parsed = key.replace(/\\n/g, "\n");
 
   // Ensure it starts and ends correctly
   if (!parsed.includes("BEGIN PRIVATE KEY")) {
@@ -196,7 +196,90 @@ export async function deleteLabel(email: string, labelId: string) {
   try {
     const db = getFirestore();
     await db.collection("gmailLabels").doc(email).collection("labels").doc(labelId).delete();
+  } catch (error) {
+    throw error;
+  }
+}
+
+export type GmailFilter = {
+  id: string;
+  name: string;
+  query: string;
+  labelIds?: string[];
+  archive?: boolean;
+  gmailId?: string; // ID when saved to Gmail
+  createdAt: string;
+  updatedAt: string;
+  // Status tracking
+  status: "draft" | "published"; // draft = saved in firestore, published = also in Gmail
+};
+
+export async function saveFilter(email: string, filter: GmailFilter) {
+  try {
+    const db = getFirestore();
+    // Remove undefined properties before saving to Firestore
+    const sanitizedFilter = sanitizeData(filter);
+    await db.collection("gmailFilters").doc(email).collection("filters").doc(filter.id).set(sanitizedFilter);
   } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      throw new Error(
+        "Firestore database not found. Please ensure:\n" +
+          "1. Firestore API is enabled in Google Cloud Console\n" +
+          "2. A Firestore database exists in your project\n" +
+          "3. Your service account has proper permissions"
+      );
+    }
+    throw error;
+  }
+}
+
+export async function saveFilters(email: string, filters: GmailFilter[]) {
+  try {
+    const db = getFirestore();
+    const batch = db.batch();
+    const filtersRef = db.collection("gmailFilters").doc(email).collection("filters");
+
+    // Delete existing filters
+    const existingDocs = await filtersRef.get();
+    existingDocs.forEach((doc) => batch.delete(doc.ref));
+
+    // Save new filters
+    filters.forEach((filter) => {
+      batch.set(filtersRef.doc(filter.id), sanitizeData(filter));
+    });
+
+    await batch.commit();
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      throw new Error(
+        "Firestore database not found. Please ensure:\n" +
+          "1. Firestore API is enabled in Google Cloud Console\n" +
+          "2. A Firestore database exists in your project\n" +
+          "3. Your service account has proper permissions"
+      );
+    }
+    throw error;
+  }
+}
+
+export async function loadFilters(email: string): Promise<GmailFilter[]> {
+  try {
+    const db = getFirestore();
+    const snapshot = await db.collection("gmailFilters").doc(email).collection("filters").get();
+    return snapshot.docs.map((doc) => doc.data() as GmailFilter);
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function deleteFilter(email: string, filterId: string) {
+  try {
+    const db = getFirestore();
+    await db.collection("gmailFilters").doc(email).collection("filters").doc(filterId).delete();
+  } catch (error) {
     throw error;
   }
 }
