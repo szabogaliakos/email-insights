@@ -213,7 +213,7 @@ export default function FiltersPage() {
             </div>
           );
         default:
-          return filter[columnKey];
+          return filter[columnKey as string] ?? "";
       }
     };
   }, [deduplicatedFilters]);
