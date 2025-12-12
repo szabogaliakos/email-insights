@@ -497,71 +497,78 @@ function ContactsTable({
       <div className="flex flex-col gap-4">
         {/* Selection Actions - Only show when contacts are selected */}
         {hasSelection && (
-          <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex gap-2 items-center">
-              <div className="text-sm font-medium text-foreground mr-2">
+          <div className="p-3 sm:p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="text-sm font-medium text-foreground">
                 {selectedKeys === "all"
                   ? `All ${filteredItems.length} contacts selected`
                   : `${(selectedKeys as Set<string>).size} of ${filteredItems.length} contacts selected`}
               </div>
-              <Button
-                size="sm"
-                variant="flat"
-                color="primary"
-                className="text-primary"
-                onPress={() => {
-                  const contactKeys =
-                    selectedKeys === "all"
-                      ? filteredItems.map((contact) => contact.email)
-                      : Array.from(selectedKeys as Set<string>);
-                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                  const emails = contacts.map((contact) => contact.email).join(", ");
-                  copyToClipboard(emails, true);
-                }}
-              >
-                📋 Copy All
-              </Button>
-              <Button
-                size="sm"
-                variant="flat"
-                color="secondary"
-                className="text-secondary"
-                onPress={() => {
-                  const contactKeys =
-                    selectedKeys === "all"
-                      ? filteredItems.map((contact) => contact.email)
-                      : Array.from(selectedKeys as Set<string>);
-                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                  const emails = contacts.map((contact) => contact.email).join(" OR ");
-                  copyToClipboard(emails, true);
-                }}
-              >
-                🏷️ Copy with OR
-              </Button>
-              <Button
-                size="sm"
-                variant="solid"
-                color="success"
-                className="text-white"
-                onPress={() => {
-                  // Pre-populate the automation query with selected contacts
-                  const contactKeys =
-                    selectedKeys === "all"
-                      ? filteredItems.map((contact) => contact.email)
-                      : Array.from(selectedKeys as Set<string>);
-                  const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
-                  const emails = contacts.map((contact) => contact.email).join(" OR ");
-                  setAutomationQuery(emails);
-                  setLabelName(""); // Reset label name
-                  setArchiveEnabled(true); // Default to archive enabled
-                  setAutomationModalOpen(true);
-                }}
-              >
-                🚀 Create label and automation
-              </Button>
-              <Button size="sm" variant="ghost" onPress={handleDeselectAll}>
-                ❌ Deselect All
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  className="text-primary justify-start sm:justify-center"
+                  onPress={() => {
+                    const contactKeys =
+                      selectedKeys === "all"
+                        ? filteredItems.map((contact) => contact.email)
+                        : Array.from(selectedKeys as Set<string>);
+                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = contacts.map((contact) => contact.email).join(", ");
+                    copyToClipboard(emails, true);
+                  }}
+                >
+                  📋 Copy All
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="secondary"
+                  className="text-secondary justify-start sm:justify-center"
+                  onPress={() => {
+                    const contactKeys =
+                      selectedKeys === "all"
+                        ? filteredItems.map((contact) => contact.email)
+                        : Array.from(selectedKeys as Set<string>);
+                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = contacts.map((contact) => contact.email).join(" OR ");
+                    copyToClipboard(emails, true);
+                  }}
+                >
+                  🏷️ Copy with OR
+                </Button>
+                <Button
+                  size="sm"
+                  variant="solid"
+                  color="success"
+                  className="text-white justify-start sm:justify-center"
+                  onPress={() => {
+                    // Pre-populate the automation query with selected contacts
+                    const contactKeys =
+                      selectedKeys === "all"
+                        ? filteredItems.map((contact) => contact.email)
+                        : Array.from(selectedKeys as Set<string>);
+                    const contacts = filteredItems.filter((contact) => contactKeys.includes(contact.email));
+                    const emails = contacts.map((contact) => contact.email).join(" OR ");
+                    setAutomationQuery(emails);
+                    setLabelName(""); // Reset label name
+                    setArchiveEnabled(true); // Default to archive enabled
+                    setAutomationModalOpen(true);
+                  }}
+                >
+                  🚀 Create label and automation
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="justify-start sm:justify-center"
+                  onPress={handleDeselectAll}
+                >
+                  ❌ Deselect All
+                </Button>
+              </div>
             </div>
           </div>
         )}
