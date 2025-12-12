@@ -90,6 +90,11 @@ export default function AppNavbar() {
             </Link>
           </NavbarItem>
           <NavbarItem>
+            <Link color="foreground" href="/settings">
+              Settings
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
             <Link color="foreground" href="/">
               Home
             </Link>
@@ -145,6 +150,11 @@ export default function AppNavbar() {
           <NavbarMenuItem>
             <Link color="foreground" href="/filters" className="w-full py-2">
               ⚙️ Filters
+            </Link>
+          </NavbarMenuItem>
+          <NavbarMenuItem>
+            <Link color="foreground" href="/settings" className="w-full py-2">
+              🔧 Settings
             </Link>
           </NavbarMenuItem>
           <NavbarMenuItem>

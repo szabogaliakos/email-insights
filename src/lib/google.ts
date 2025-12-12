@@ -5,6 +5,7 @@ const scopes = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.settings.basic",
   "https://www.googleapis.com/auth/userinfo.email",
+  "https://mail.google.com/", // IMAP, POP, and SMTP access
 ];
 
 function getRedirectUri() {

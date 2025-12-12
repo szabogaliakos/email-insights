@@ -214,6 +214,62 @@ export type GmailFilter = {
   status: "draft" | "published"; // draft = saved in firestore, published = also in Gmail
 };
 
+export type GmailIMAPSettings = {
+  enabled: boolean;
+  appPassword: string; // Encrypted
+  imapEnabledInGmail: boolean;
+  setupCompleted: boolean;
+  maxMessages?: number; // How many messages to scan (default 2000)
+  mailbox?: string; // Which mailbox to scan (default "[Gmail]/All Mail")
+  createdAt: string;
+  updatedAt: string;
+};
+
+// IMAP Settings Management
+export async function saveIMAPSettings(email: string, settings: Omit<GmailIMAPSettings, "createdAt" | "updatedAt">) {
+  try {
+    const db = getFirestore();
+    const now = new Date().toISOString();
+    const settingsWithTimestamps = {
+      ...settings,
+      updatedAt: now,
+    };
+    await db.collection("gmailIMAPSettings").doc(email).set(sanitizeData(settingsWithTimestamps));
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      throw new Error(
+        "Firestore database not found. Please ensure:\n" +
+          "1. Firestore API is enabled in Google Cloud Console\n" +
+          "2. A Firestore database exists in your project\n" +
+          "3. Your service account has proper permissions"
+      );
+    }
+    throw error;
+  }
+}
+
+export async function loadIMAPSettings(email: string): Promise<GmailIMAPSettings | null> {
+  try {
+    const db = getFirestore();
+    const doc = await db.collection("gmailIMAPSettings").doc(email).get();
+    return doc.exists ? (doc.data() as GmailIMAPSettings) : null;
+  } catch (error: any) {
+    if (error.code === 5 || error.code === "NOT_FOUND") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function deleteIMAPSettings(email: string) {
+  try {
+    const db = getFirestore();
+    await db.collection("gmailIMAPSettings").doc(email).delete();
+  } catch (error) {
+    throw error;
+  }
+}
+
 export async function saveFilter(email: string, filter: GmailFilter) {
   try {
     const db = getFirestore();

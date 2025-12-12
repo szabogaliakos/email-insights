@@ -34,6 +34,7 @@ export default function ContactsPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [scanMethod, setScanMethod] = useState<"api" | "imap">("imap");
 
   useEffect(() => {
     // Check authentication first
@@ -129,24 +130,105 @@ export default function ContactsPage() {
     setScanPollingInterval(intervalId);
   };
 
+  const startPollingIMAPStatus = (jobId: string) => {
+    stopPolling(); // Clear any existing polling
+
+    const poll = async () => {
+      try {
+        // Use IMAP-specific status endpoint
+        const res = await fetch(`/api/gmail/sync/imap-status/${jobId}`);
+        if (!res.ok) {
+          stopPolling();
+          setError("Failed to check IMAP scan status");
+          return;
+        }
+        const status = await res.json();
+        setScanStatus(status);
+
+        // Stop polling if job is done
+        if (status.status !== "running") {
+          stopPolling();
+          // Refresh data if complete
+          if (status.status === "completed") {
+            await loadContacts();
+          }
+        }
+      } catch (err) {
+        console.error("[IMAP] Polling error:", err);
+        stopPolling();
+      }
+    };
+
+    // Poll immediately, then every 2 seconds for IMAP (faster updates)
+    poll();
+    const intervalId = setInterval(poll, 2000);
+    setScanPollingInterval(intervalId);
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     setError(null);
     try {
-      const res = await fetch("/api/gmail/sync/start", { method: "POST" });
+      const res = await fetch("/api/gmail/sync/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: scanMethod }),
+      });
+
       if (res.status === 401) {
         setError("Please connect your Gmail account first.");
         setSyncing(false);
         return;
       }
-      if (!res.ok) {
-        setError("Failed to start scan. Try reconnecting your Google account.");
-        setSyncing(false);
-        return;
-      }
+
       const json = await res.json();
-      setScanJobId(json.jobId);
-      startPollingStatus(json.jobId);
+
+      if (scanMethod === "imap") {
+        // IMAP scanning now uses job-based progress tracking
+        if (json.success && json.jobId) {
+          // Start polling IMAP job status
+          setScanJobId(json.jobId);
+          startPollingIMAPStatus(json.jobId);
+        } else if (json.fallback === "api") {
+          // IMAP failed, suggest falling back to API
+          addToast({
+            title: "IMAP Authentication Required",
+            description: json.error + " Switching to API method...",
+            color: "warning",
+          });
+
+          // Automatically retry with API method after a short delay
+          setTimeout(async () => {
+            setScanMethod("api");
+            const apiRes = await fetch("/api/gmail/sync/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ method: "api" }),
+            });
+
+            if (apiRes.ok) {
+              const apiJson = await apiRes.json();
+              setScanJobId(apiJson.jobId);
+              startPollingStatus(apiJson.jobId);
+            } else {
+              setError("Both IMAP and API scanning failed. Please check your Gmail connection.");
+            }
+          }, 1000);
+          return;
+        } else {
+          setError(json.message || json.error || "Failed to start IMAP scan");
+        }
+      } else {
+        // API scanning uses job polling
+        if (!res.ok) {
+          setError("Failed to start scan. Try reconnecting your Google account.");
+          setSyncing(false);
+          return;
+        }
+
+        setScanJobId(json.jobId);
+        startPollingStatus(json.jobId); // Use regular API polling
+      }
     } catch (err) {
       setError("Failed to start scan");
       console.error(err);
@@ -238,22 +320,52 @@ export default function ContactsPage() {
       </section>
 
       {/* Action Buttons */}
-      <div className="mb-8 flex gap-6 justify-center">
-        <Button
-          variant="bordered"
-          className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-lg px-8 py-3"
-          onPress={isScanning ? handleStopScan : handleSync}
-          isDisabled={!isConnected || syncing}
-        >
-          {syncing ? "⚙️ Starting..." : isScanning ? "⏹️ Stop Scanning" : "🔍 Sync Contacts"}
-        </Button>
-        <Button
-          variant="ghost"
-          className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-lg px-8 py-3"
-          onPress={loadContacts}
-        >
-          ⟳ Refresh
-        </Button>
+      <div className="mb-8 flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
+        <div className="flex gap-3 items-center text-sm text-default-600 mb-2 sm:mb-0">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="scanMethod"
+              value="imap"
+              checked={scanMethod === "imap"}
+              onChange={() => setScanMethod("imap")}
+              className="accent-primary"
+            />
+            Fast IMAP Scan
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="scanMethod"
+              value="api"
+              checked={scanMethod === "api"}
+              onChange={() => setScanMethod("api")}
+              className="accent-primary"
+            />
+            API Scan
+          </label>
+        </div>
+        <div className="flex gap-4">
+          <Button
+            variant="bordered"
+            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-lg px-8 py-3"
+            onPress={isScanning ? handleStopScan : handleSync}
+            isDisabled={!isConnected || syncing}
+          >
+            {syncing
+              ? "⚙️ Starting..."
+              : isScanning
+              ? "⏹️ Stop Scanning"
+              : `🔍 Sync Contacts (${scanMethod.toUpperCase()})`}
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-lg px-8 py-3"
+            onPress={loadContacts}
+          >
+            ⟳ Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Scan Progress */}
@@ -274,28 +386,49 @@ export default function ContactsPage() {
           {/* Progress Bar */}
           <div className="w-full bg-default-200 rounded-full h-3 mb-6 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-primary to-secondary rounded-full animate-pulse"
-              style={{ width: "60%" }}
+              className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
+              style={{
+                width: `${scanMethod === "imap" ? (scanStatus?.percentComplete || 0) + "%" : "60%"}`,
+              }}
             ></div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             <div className="bg-default/10 rounded-lg p-4">
-              <div className="text-2xl font-bold text-primary mb-1">{scanStatus?.messagesProcessed || 0}</div>
+              <div className="text-2xl font-bold text-primary mb-1">
+                {scanStatus?.messagesProcessed || scanStatus?.processedMessages || 0}
+              </div>
               <div className="text-xs text-default-500 uppercase tracking-wide">Messages Processed</div>
             </div>
             <div className="bg-default/10 rounded-lg p-4">
-              <div className="text-2xl font-bold text-secondary mb-1">{scanStatus?.addressesFound || 0}</div>
+              <div className="text-2xl font-bold text-secondary mb-1">
+                {scanStatus?.addressesFound || scanStatus?.contactsFound || 0}
+              </div>
               <div className="text-xs text-default-500 uppercase tracking-wide">Contacts Found</div>
             </div>
             <div className="bg-default/10 rounded-lg p-4">
               <div className="text-2xl font-bold text-green-500 mb-1">
-                {Math.floor((scanStatus?.timeElapsed || 0) / 60)}m {Math.floor((scanStatus?.timeElapsed || 0) % 60)}s
+                {Math.floor((scanStatus?.timeElapsed || 0) / 1000 / 60)}m{" "}
+                {Math.floor(((scanStatus?.timeElapsed || 0) / 1000) % 60)}s
               </div>
               <div className="text-xs text-default-500 uppercase tracking-wide">Scan Duration</div>
             </div>
           </div>
+
+          {/* IMAP-specific Progress */}
+          {scanMethod === "imap" && scanStatus?.message && (
+            <div className="mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-sm text-primary text-center">{scanStatus.message}</p>
+              {scanStatus.totalMessages && scanStatus.processedMessages && (
+                <div className="mt-2 text-center">
+                  <span className="text-xs text-default-500">
+                    Scanning {scanStatus.totalMessages} messages in {scanStatus.mailbox || "All Mail"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {scanTimeRemaining && scanTimeRemaining > 0 && (
             <div className="mt-4 text-center">
