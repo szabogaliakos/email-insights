@@ -1,6 +1,16 @@
 "use client";
 
-import { Navbar, NavbarBrand, NavbarContent, NavbarItem, Link, Button } from "@heroui/react";
+import {
+  Navbar,
+  NavbarBrand,
+  NavbarContent,
+  NavbarItem,
+  Link,
+  Button,
+  NavbarMenuToggle,
+  NavbarMenu,
+  NavbarMenuItem,
+} from "@heroui/react";
 import { useEffect, useState } from "react";
 
 export const AcmeLogo = () => {
@@ -55,7 +65,7 @@ export default function AppNavbar() {
   };
 
   return (
-    <Navbar isBordered className="bg-default/60 backdrop-blur-md border-default-200/20">
+    <Navbar isBordered className="bg-default/60 backdrop-blur-md border-default-200/20" maxWidth="full">
       <NavbarBrand>
         <AcmeLogo />
         <p className="font-bold text-foreground">Gmail Insights</p>
@@ -91,30 +101,64 @@ export default function AppNavbar() {
         <NavbarItem className="hidden lg:flex">
           {isConnected && userEmail && <span className="text-sm text-primary font-mono">{userEmail}</span>}
         </NavbarItem>
+
+        {isConnected && <NavbarMenuToggle className="sm:hidden" />}
+
         <NavbarItem>
           {isConnected ? (
             <Button
               as={Link}
               color="danger"
               variant="bordered"
-              className="border-danger-500/50 text-danger hover:bg-danger/10"
+              className="border-danger-500/50 text-danger hover:bg-danger/10 text-sm"
               href="/api/auth/logout"
             >
-              🚪 Logout
+              Logout
             </Button>
           ) : (
             <Button
               color="primary"
               variant="solid"
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-primary-foreground"
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-primary-foreground text-sm"
               onPress={handleConnect}
               isDisabled={!authUrl}
+              size="md"
             >
               Sign in with Gmail
             </Button>
           )}
         </NavbarItem>
       </NavbarContent>
+
+      {isConnected && (
+        <NavbarMenu className="bg-default/90 backdrop-blur-md border-default-200/20">
+          <NavbarMenuItem>
+            <Link color="foreground" href="/contacts" className="w-full py-2">
+              📧 Contacts
+            </Link>
+          </NavbarMenuItem>
+          <NavbarMenuItem>
+            <Link color="foreground" href="/labels" className="w-full py-2">
+              🏷️ Labels
+            </Link>
+          </NavbarMenuItem>
+          <NavbarMenuItem>
+            <Link color="foreground" href="/filters" className="w-full py-2">
+              ⚙️ Filters
+            </Link>
+          </NavbarMenuItem>
+          <NavbarMenuItem>
+            <Link color="foreground" href="/" className="w-full py-2">
+              🏠 Home
+            </Link>
+          </NavbarMenuItem>
+          {userEmail && (
+            <NavbarMenuItem className="lg:hidden">
+              <span className="text-sm text-primary-600 font-mono py-2 block">Connected: {userEmail}</span>
+            </NavbarMenuItem>
+          )}
+        </NavbarMenu>
+      )}
     </Navbar>
   );
 }
