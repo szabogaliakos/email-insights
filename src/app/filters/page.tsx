@@ -181,38 +181,6 @@ export default function FiltersPage() {
     }
   };
 
-  const deleteFilter = async (filterId: string) => {
-    if (!confirm("Are you sure you want to delete this filter?")) return;
-
-    try {
-      const res = await fetch(`/api/gmail/filters/${filterId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        addToast({
-          title: "Delete failed",
-          description: "Failed to delete filter",
-          color: "danger",
-        });
-        return;
-      }
-
-      setFilters(filters.filter((f) => f.id !== filterId));
-      addToast({
-        title: "Filter deleted",
-        description: "Filter has been deleted",
-        color: "success",
-      });
-    } catch (err) {
-      addToast({
-        title: "Delete failed",
-        description: "Failed to delete filter",
-        color: "danger",
-      });
-    }
-  };
-
   const getLabelNames = (labelIds?: string[]) => {
     if (!labelIds || labelIds.length === 0) return "None";
     return labelIds.map((id) => labels.find((l) => l.id === id)?.name || id).join(", ");
@@ -301,15 +269,6 @@ export default function FiltersPage() {
                 📤 Save to Gmail
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="bordered"
-              color="danger"
-              className="border-red-400/50 text-red-400 hover:border-red-400 hover:bg-red-400/10"
-              onPress={() => deleteFilter(filter.id)}
-            >
-              🗑️ Delete
-            </Button>
           </div>
         );
       default:
@@ -335,6 +294,44 @@ export default function FiltersPage() {
           color="primary"
           variant="bordered"
           className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all duration-300"
+          onPress={async () => {
+            try {
+              setLoading(true);
+              setError(null);
+
+              // Sync filters from Gmail to our database
+              const res = await fetch("/api/gmail/filters", {
+                method: "PUT",
+              });
+
+              if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.details || data.error || "Failed to sync from Gmail");
+              }
+
+              const syncResult = await res.json();
+
+              // Refresh the local filters
+              await loadFilters();
+
+              addToast({
+                title: "Sync completed",
+                description: `Successfully synced ${syncResult.synced} filters from Gmail`,
+                color: "success",
+              });
+            } catch (error: any) {
+              console.error("Sync error:", error);
+              setError(`Sync failed: ${error.message}`);
+
+              addToast({
+                title: "Sync failed",
+                description: error.message || "Failed to sync filters from Gmail",
+                color: "danger",
+              });
+            } finally {
+              setLoading(false);
+            }
+          }}
         >
           🔄 Sync from Gmail
         </Button>

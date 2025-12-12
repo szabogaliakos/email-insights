@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getGmailClient } from "@/lib/google";
+import { saveFilters, type GmailFilter } from "@/lib/firestore";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,84 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Failed to fetch filters",
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT() {
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get("gmail_refresh_token")?.value;
+
+  if (!refreshToken) {
+    return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+  }
+
+  try {
+    const { gmail } = await getGmailClient(refreshToken);
+    const profile = await gmail.users.getProfile({ userId: "me" });
+    const email = profile.data.emailAddress;
+
+    if (!email) {
+      return NextResponse.json({ error: "Failed to get user email" }, { status: 401 });
+    }
+
+    // Fetch all filters from Gmail
+    const response = await gmail.users.settings.filters.list({
+      userId: "me",
+    });
+
+    const gmailFilters = response.data.filter || [];
+
+    // Convert Gmail filters to our Firestore format
+    const firestoreFilters: GmailFilter[] = gmailFilters
+      .map((filter) => {
+        // Extract information from Gmail filter to create our local structure
+        // Gmail filter objects have criteria and action properties directly
+        const criteria = filter.criteria;
+        const action = filter.action;
+
+        if (!criteria) return null;
+
+        // Build query from criteria
+        let query = "";
+        if (criteria.from) query += `from:${criteria.from}`;
+        if (criteria.to) query += (query ? " " : "") + `to:${criteria.to}`;
+        if (criteria.subject) query += (query ? " " : "") + `subject:${criteria.subject}`;
+        if (criteria.query) query += (query ? " " : "") + criteria.query;
+
+        // Check for archive action (removing from inbox)
+        const archive = action?.removeLabelIds?.includes("INBOX") || false;
+
+        return {
+          id: filter.id || `gmail-filter-${Date.now()}-${Math.random()}`,
+          name: `Gmail Filter ${filter.id}`,
+          query,
+          labelIds: action?.addLabelIds || [],
+          archive,
+          gmailId: filter.id,
+          status: "published" as const,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
+      .filter(Boolean) as GmailFilter[];
+
+    // Save to Firestore
+    await saveFilters(email, firestoreFilters);
+
+    return NextResponse.json({
+      success: true,
+      synced: firestoreFilters.length,
+      filters: firestoreFilters,
+    });
+  } catch (error: any) {
+    console.error("[Gmail Filters Sync Error]", error);
+    return NextResponse.json(
+      {
+        error: "Failed to sync filters from Gmail",
         details: error.message,
       },
       { status: 500 }

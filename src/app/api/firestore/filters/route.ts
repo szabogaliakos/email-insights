@@ -198,11 +198,14 @@ export async function PUT(request: NextRequest) {
       action.removeLabelIds = ["INBOX"];
     }
 
+    // Always use the from field for all filters
+    const criteria = {
+      from: currentFilter.query,
+    };
+
     const filterData = {
       filter: {
-        criteria: {
-          query: currentFilter.query,
-        },
+        criteria,
         action,
       },
     };
