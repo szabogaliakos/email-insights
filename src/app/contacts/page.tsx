@@ -72,6 +72,7 @@ export default function ContactsPage() {
   const [scanMethod, setScanMethod] = useState<"api" | "imap">("imap");
   const [imapProgress, setImapProgress] = useState<any>(null);
   const [loadingImapProgress, setLoadingImapProgress] = useState(false);
+  const [imapSettings, setImapSettings] = useState<{ hasPassword: boolean }>({ hasPassword: false });
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -92,6 +93,7 @@ export default function ContactsPage() {
 
     // Don't load contacts initially - let the useEffect below handle it when auth is checked
     loadIMAPProgress();
+    loadIMAPSettings();
     loadStats();
   }, []);
 
@@ -101,6 +103,13 @@ export default function ContactsPage() {
       loadContacts(currentPage, searchQuery);
     }
   }, [currentPage, authChecked]);
+
+  useEffect(() => {
+    // If IMAP password is not set, switch to API method
+    if (!imapSettings.hasPassword && scanMethod === "imap") {
+      setScanMethod("api");
+    }
+  }, [imapSettings.hasPassword, scanMethod]);
 
   const checkAuth = async () => {
     try {
@@ -154,6 +163,19 @@ export default function ContactsPage() {
       console.error("Failed to load IMAP progress:", error);
     } finally {
       setLoadingImapProgress(false);
+    }
+  };
+
+  const loadIMAPSettings = async () => {
+    try {
+      const res = await fetch("/api/gmail/settings/imap");
+      if (res.ok) {
+        const settings = await res.json();
+        setImapSettings(settings);
+      }
+    } catch (error) {
+      console.error("Failed to load IMAP settings:", error);
+      // Don't show error for settings loading failure
     }
   };
 
@@ -428,9 +450,10 @@ export default function ContactsPage() {
               value="imap"
               checked={scanMethod === "imap"}
               onChange={() => setScanMethod("imap")}
+              disabled={!imapSettings.hasPassword}
               className="accent-primary"
             />
-            Fast IMAP Scan
+            Fast IMAP Scan{!imapSettings.hasPassword && " (Password required)"}
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -445,11 +468,21 @@ export default function ContactsPage() {
           </label>
         </div>
         <div className="flex gap-4">
+          {!imapSettings.hasPassword && (
+            <Button
+              variant="solid"
+              color="secondary"
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-300 text-base px-6 py-3"
+              onPress={() => router.push("/settings")}
+            >
+              ⚙️ Setup IMAP Access
+            </Button>
+          )}
           <Button
             variant="bordered"
             className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-lg px-8 py-3"
             onPress={isScanning ? handleStopScan : handleSync}
-            isDisabled={!isConnected || syncing}
+            isDisabled={!isConnected || syncing || (!imapSettings.hasPassword && scanMethod === "imap")}
           >
             {syncing ? "⚙️ Starting..." : isScanning ? "⏹️ Stop Scanning" : getScanButtonText()}
           </Button>

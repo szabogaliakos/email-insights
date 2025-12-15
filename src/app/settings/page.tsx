@@ -209,15 +209,37 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <Input
-                    type="password"
-                    label="Gmail App Password"
-                    placeholder="abcd-efgh-ijkl-mnop"
-                    value={imapPassword}
-                    onValueChange={setImapPassword}
-                    description="16-character app password from Google Account"
-                    maxLength={16}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      label="Gmail App Password"
+                      placeholder="adcdefghijklmnop"
+                      value={imapPassword}
+                      onValueChange={(value) => setImapPassword(value.replace(/\s/g, "").toLowerCase())}
+                      description="16-character app password from Google Account (spaces will be auto-removed)"
+                      maxLength={16}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      color="secondary"
+                      onPress={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          setImapPassword(text.replace(/\s/g, "").toLowerCase());
+                        } catch (err) {
+                          addToast({
+                            title: "Clipboard access failed",
+                            description: "Please paste manually or allow clipboard access",
+                            color: "warning",
+                          });
+                        }
+                      }}
+                      className="mt-[30px] px-3"
+                    >
+                      📋 Paste
+                    </Button>
+                  </div>
 
                   <div className="flex gap-3">
                     <Button color="primary" onPress={saveIMAPSettings} isLoading={saving} className="flex-1">
