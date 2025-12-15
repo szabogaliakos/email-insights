@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
 import { Chip } from "@heroui/chip";
 import { Pagination } from "@heroui/pagination";
@@ -62,6 +62,7 @@ interface StatsResponse {
 
 export default function ContactsPage() {
   const router = useRouter();
+  const contactsLoadedRef = useRef(false);
   const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
   const [statsData, setStatsData] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,6 +135,13 @@ export default function ContactsPage() {
     setLoading(false);
   };
 
+  const loadContactsOnce = async () => {
+    if (!contactsLoadedRef.current) {
+      contactsLoadedRef.current = true;
+      await loadContacts();
+    }
+  };
+
   const loadIMAPProgress = async () => {
     setLoadingImapProgress(true);
     try {
@@ -192,7 +200,8 @@ export default function ContactsPage() {
           stopPolling();
           // Refresh data if complete
           if (status.status === "completed") {
-            await loadContacts();
+            contactsLoadedRef.current = false; // Allow refresh
+            await loadContactsOnce();
           }
         }
       } catch (err) {
@@ -227,7 +236,8 @@ export default function ContactsPage() {
           stopPolling();
           // Refresh data if complete
           if (status.status === "completed") {
-            await loadContacts();
+            contactsLoadedRef.current = false; // Allow refresh
+            await loadContactsOnce();
           }
         }
       } catch (err) {

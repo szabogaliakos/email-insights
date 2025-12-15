@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cancelJob, getJob } from "@/lib/job-manager";
+import { IMAPHeaderScanner } from "@/lib/imap-header-scanner";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
 
+    // Handle IMAP jobs (stored in memory)
+    if (jobId.startsWith("imap_")) {
+      const imapJob = IMAPHeaderScanner.getIMAPJob(jobId);
+      if (!imapJob) {
+        return NextResponse.json({ error: "IMAP job not found" }, { status: 404 });
+      }
+
+      IMAPHeaderScanner.updateIMAPJob(jobId, {
+        status: "cancelled",
+        completedAt: new Date().toISOString(),
+        message: "Scan cancelled by user",
+      });
+
+      return NextResponse.json({
+        jobId,
+        status: "cancelled",
+        message: "Scan cancelled. Data collected so far has been saved.",
+      });
+    }
+
+    // Handle API jobs (stored in Firestore)
     const job = await getJob(jobId);
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });

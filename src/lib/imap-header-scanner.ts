@@ -215,7 +215,8 @@ export class IMAPHeaderScanner {
       const mailbox = imapSettings?.mailbox || "[Gmail]/All Mail";
 
       // Calculate scan range (resume from last position or start from 1)
-      const lastScanned = imapProgress?.lastMessageScanned || 0;
+      // If scan is complete, reset to start fresh rescan
+      const lastScanned = imapProgress?.isComplete ? 0 : imapProgress?.lastMessageScanned || 0;
       const maxToScan = lastScanned + maxMessages; // Start from last + add chunk size
 
       // Setup IMAP connection
@@ -285,6 +286,25 @@ export class IMAPHeaderScanner {
       let processed = 0;
 
       while (processed < messagesInThisScan) {
+        // Check if job was cancelled
+        const currentJobStatus = IMAPHeaderScanner.getIMAPJob(jobId)?.status;
+        if (currentJobStatus === "cancelled") {
+          console.log(`[IMAP] Job ${jobId} cancelled, stopping scan`);
+          await imap.logout();
+          const senders = Array.from(sendersSet);
+          const recipients = Array.from(recipientsSet);
+          const merged = Array.from(new Set([...senders, ...recipients]));
+          return {
+            senders,
+            recipients,
+            merged,
+            scanned: processed,
+            contacts: merged.length,
+            message: "Scan was cancelled by user",
+            lastMessageScanned: startFrom + processed - 1,
+          };
+        }
+
         const remaining = messagesInThisScan - processed;
         const currentBatchSize = Math.min(batchSize, remaining);
 
@@ -301,6 +321,24 @@ export class IMAPHeaderScanner {
           });
 
           for await (const message of messages) {
+            // Check if job was cancelled mid-batch
+            if (IMAPHeaderScanner.getIMAPJob(jobId)?.status === "cancelled") {
+              console.log(`[IMAP] Job ${jobId} cancelled during batch processing, stopping scan`);
+              await imap.logout();
+              const senders = Array.from(sendersSet);
+              const recipients = Array.from(recipientsSet);
+              const merged = Array.from(new Set([...senders, ...recipients]));
+              return {
+                senders,
+                recipients,
+                merged,
+                scanned: processed + currentBatchSize, // Include current batch
+                contacts: merged.length,
+                message: "Scan was cancelled by user",
+                lastMessageScanned: startFrom + processed + currentBatchSize - 1,
+              };
+            }
+
             const envelope = message.envelope;
             if (!envelope) continue;
 
@@ -326,10 +364,45 @@ export class IMAPHeaderScanner {
           }
         } catch (fetchError) {
           console.warn(`[IMAP] Batch fetch error: ${fetchError}`);
+          // After error, check if cancelled to break the loop
+          if (IMAPHeaderScanner.getIMAPJob(jobId)?.status === "cancelled") {
+            console.log(`[IMAP] Job ${jobId} cancelled after batch error, stopping scan`);
+            await imap.logout();
+            const senders = Array.from(sendersSet);
+            const recipients = Array.from(recipientsSet);
+            const merged = Array.from(new Set([...senders, ...recipients]));
+            return {
+              senders,
+              recipients,
+              merged,
+              scanned: processed,
+              contacts: merged.length,
+              message: "Scan was cancelled by user",
+              lastMessageScanned: startFrom + processed - 1,
+            };
+          }
         }
 
         processed += currentBatchSize;
         const percentComplete = Math.round((processed / messagesInThisScan) * 100);
+
+        // Check again after batch to be safe
+        if (IMAPHeaderScanner.getIMAPJob(jobId)?.status === "cancelled") {
+          console.log(`[IMAP] Job ${jobId} cancelled after batch, stopping scan`);
+          await imap.logout();
+          const senders = Array.from(sendersSet);
+          const recipients = Array.from(recipientsSet);
+          const merged = Array.from(new Set([...senders, ...recipients]));
+          return {
+            senders,
+            recipients,
+            merged,
+            scanned: processed,
+            contacts: merged.length,
+            message: "Scan was cancelled by user",
+            lastMessageScanned: startFrom + processed - 1,
+          };
+        }
 
         IMAPHeaderScanner.updateIMAPJob(jobId, {
           processedMessages: processed,
