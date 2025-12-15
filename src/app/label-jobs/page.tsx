@@ -1,0 +1,373 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button } from "@heroui/button";
+import { addToast } from "@heroui/toast";
+import { useRouter } from "next/navigation";
+import StepProgress from "@/components/StepProgress";
+
+interface AutomationJob {
+  id: string;
+  name: string;
+  description: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  type: "scan" | "filter_sync" | "label_application";
+  progress: number; // 0-100
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export default function LabelJobsPage() {
+  const router = useRouter();
+  const [jobs, setJobs] = useState<AutomationJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Simulated jobs data - in a real implementation, this would come from an API
+  const mockJobs: AutomationJob[] = [
+    {
+      id: "scan_001",
+      name: "Initial Gmail Scan",
+      description: "Scanning Gmail inbox for contact extraction and analysis",
+      status: "completed",
+      type: "scan",
+      progress: 100,
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      startedAt: new Date(Date.now() - 86000000).toISOString(),
+      completedAt: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: "rules_sync_001",
+      name: "Filter Rules Synchronization",
+      description: "Syncing label rules and filters from Gmail",
+      status: "completed",
+      type: "filter_sync",
+      progress: 100,
+      createdAt: new Date(Date.now() - 43200000).toISOString(),
+      startedAt: new Date(Date.now() - 43000000).toISOString(),
+      completedAt: new Date(Date.now() - 7200000).toISOString(),
+    },
+  ];
+
+  useEffect(() => {
+    // Check authentication first
+    checkAuth();
+    loadJobs();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/gmail/data");
+      if (res.status === 401) {
+        router.push(`/?error=${encodeURIComponent("Please connect your Gmail account to access this page.")}`);
+        return;
+      }
+    } catch (err) {
+      router.push(`/?error=${encodeURIComponent("Authentication check failed.")}`);
+      return;
+    }
+    setAuthChecked(true);
+  };
+
+  const loadJobs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // For now, we'll use mock data since the jobs API doesn't exist yet
+      // In production, this would call something like /api/automation/jobs
+      setTimeout(() => {
+        setJobs(mockJobs);
+        setLoading(false);
+      }, 1000);
+    } catch (err) {
+      setError("Failed to load automation jobs");
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: AutomationJob["status"]) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "running":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "pending":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "failed":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "cancelled":
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    }
+  };
+
+  const getStatusIcon = (status: AutomationJob["status"]) => {
+    switch (status) {
+      case "completed":
+        return "✅";
+      case "running":
+        return "⏳";
+      case "pending":
+        return "⏲️";
+      case "failed":
+        return "❌";
+      case "cancelled":
+        return "⏹️";
+      default:
+        return "❓";
+    }
+  };
+
+  const getTypeLabel = (type: AutomationJob["type"]) => {
+    switch (type) {
+      case "scan":
+        return "📧 Email Scan";
+      case "filter_sync":
+        return "🔄 Filter Sync";
+      case "label_application":
+        return "🏷️ Label Application";
+      default:
+        return "⚙️ Automation";
+    }
+  };
+
+  const formatDuration = (startTime: string, endTime?: string) => {
+    const start = new Date(startTime);
+    const end = endTime ? new Date(endTime) : new Date();
+    const duration = Math.floor((end.getTime() - start.getTime()) / 1000);
+
+    if (duration < 60) return `${duration}s`;
+    if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`;
+    const hours = Math.floor(duration / 3600);
+    const minutes = Math.floor((duration % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto relative">
+      {/* Navigation Arrow - Only left arrow since this is the final step */}
+      <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-50">
+        <button
+          onClick={() => router.push("/label-rules")}
+          className="bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500 text-emerald-500 hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
+          title="Back: Label Rules"
+        >
+          <span className="text-xl">←</span>
+        </button>
+      </div>
+
+      {/* Step Progress Bar */}
+      <StepProgress currentStep={4} />
+
+      <div className="mb-12 text-center">
+        <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+          Label Jobs
+        </h1>
+        <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+          Monitor the progress and status of your email automation jobs. Track scans, rule applications, and system
+          tasks in real-time.
+        </p>
+        <div className="w-24 h-1 bg-gradient-to-r from-green-400 to-emerald-400 mx-auto mt-4 rounded-full"></div>
+      </div>
+
+      <div className="mb-8 flex gap-6 justify-center">
+        <Button
+          variant="bordered"
+          className="border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all duration-300"
+          onPress={async () => {
+            // Simulate triggering a real job (rule application or scan)
+            const newJob: AutomationJob = {
+              id: `job_${Date.now()}`,
+              name: "Manual Rule Application Scan",
+              description: "Applying pending label rules to recent emails",
+              status: "pending",
+              type: "scan",
+              progress: 0,
+              createdAt: new Date().toISOString(),
+            };
+
+            setJobs((prev) => [newJob, ...prev]);
+
+            // Simulate job processing
+            setTimeout(() => {
+              setJobs((prev) =>
+                prev.map((job) =>
+                  job.id === newJob.id
+                    ? { ...job, status: "running", startedAt: new Date().toISOString(), progress: 15 }
+                    : job
+                )
+              );
+            }, 2000);
+
+            setTimeout(() => {
+              setJobs((prev) =>
+                prev.map((job) => (job.id === newJob.id ? { ...job, status: "running", progress: 75 } : job))
+              );
+            }, 5000);
+
+            setTimeout(() => {
+              setJobs((prev) =>
+                prev.map((job) =>
+                  job.id === newJob.id
+                    ? { ...job, status: "completed", progress: 100, completedAt: new Date().toISOString() }
+                    : job
+                )
+              );
+            }, 8000);
+
+            addToast({
+              title: "Job started",
+              description: "Label rules application job has been initiated",
+              color: "success",
+            });
+          }}
+        >
+          🚀 Run Rule Application
+        </Button>
+        <Button
+          variant="ghost"
+          className="text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300"
+          onPress={loadJobs}
+        >
+          ⟳ Refresh Jobs
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mb-8 p-6 bg-red-900/20 border border-red-400 rounded-lg backdrop-blur-sm text-red-300 shadow-lg shadow-red-400/10">
+          <div className="flex items-center gap-3">
+            <span className="text-red-400">⚠️</span>
+            <span className="font-medium">Error: {error}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-green-900/20">
+          <div className="p-6 border-b border-white/10">
+            <h2 className="text-2xl font-semibold text-white mb-2">⚙️ Automation Jobs Dashboard</h2>
+            <p className="text-sm text-gray-400">
+              {loading ? "Loading jobs..." : `Last updated: ${new Date().toLocaleTimeString()}`}
+            </p>
+          </div>
+
+          <div className="p-6">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-400 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-sm text-gray-400">Loading automation jobs...</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">⚙️</span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">No automation jobs yet.</p>
+                <p className="text-xs text-gray-500">Jobs will appear here when you run scans or apply label rules.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {jobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className={`p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 ${getStatusColor(
+                      job.status
+                    )}`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-start gap-4">
+                        <div className="text-2xl">{getStatusIcon(job.status)}</div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">{job.name}</h3>
+                          <p className="text-sm text-gray-300 mb-2">{job.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-gray-400">
+                            <span className="px-2 py-1 bg-black/20 rounded-full">{getTypeLabel(job.type)}</span>
+                            <span>Created: {formatDate(job.createdAt)}</span>
+                            {job.startedAt && <span>Duration: {formatDuration(job.startedAt, job.completedAt)}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-white mb-1">{job.progress}%</div>
+                        <div className="w-24 h-2 bg-black/30 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-500"
+                            style={{ width: `${job.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {job.status === "running" && (
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-sm text-green-400">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-400 border-t-transparent"></div>
+                          Processing...
+                        </div>
+                      </div>
+                    )}
+
+                    {job.error && (
+                      <div className="bg-red-900/30 border border-red-400/50 rounded-lg p-3 mt-4">
+                        <div className="text-sm text-red-300">
+                          <strong>Error:</strong> {job.error}
+                        </div>
+                      </div>
+                    )}
+
+                    {job.status === "completed" && job.completedAt && (
+                      <div className="text-xs text-gray-400 mt-4">
+                        ✅ Completed successfully on {formatDate(job.completedAt)}
+                      </div>
+                    )}
+
+                    {job.status === "failed" && (
+                      <div className="text-xs text-red-400 mt-4">❌ Failed - Check error details above</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-blue-400 mb-2">
+              {jobs.filter((j) => j.status === "completed").length}
+            </div>
+            <div className="text-sm text-gray-400">Completed</div>
+          </div>
+          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-yellow-400 mb-2">
+              {jobs.filter((j) => j.status === "running").length}
+            </div>
+            <div className="text-sm text-gray-400">Running</div>
+          </div>
+          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-green-400 mb-2">
+              {jobs.filter((j) => j.status === "pending").length}
+            </div>
+            <div className="text-sm text-gray-400">Pending</div>
+          </div>
+          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-red-400 mb-2">
+              {jobs.filter((j) => j.status === "failed").length}
+            </div>
+            <div className="text-sm text-gray-400">Failed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

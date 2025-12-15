@@ -131,9 +131,9 @@ export default function ContactsPage() {
       </div>
       <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
         <button
-          onClick={() => router.push("/labels")}
+          onClick={() => router.push("/label-rules")}
           className="bg-secondary/20 hover:bg-secondary border border-secondary text-secondary hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
-          title="Next: Create Labels"
+          title="Next: Label Rules"
         >
           <span className="text-xl">→</span>
         </button>

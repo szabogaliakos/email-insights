@@ -10,7 +10,7 @@ interface Step {
 }
 
 interface StepProgressProps {
-  currentStep: 1 | 2 | 3;
+  currentStep: 1 | 2 | 3 | 4;
 }
 
 const steps: Step[] = [
@@ -26,8 +26,13 @@ const steps: Step[] = [
   },
   {
     id: 3,
-    title: "Create Labels",
-    description: "Set up automations",
+    title: "Label Rules",
+    description: "Create automation rules",
+  },
+  {
+    id: 4,
+    title: "Label Jobs",
+    description: "Monitor automation",
   },
 ];
 
