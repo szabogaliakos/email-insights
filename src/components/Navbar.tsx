@@ -75,6 +75,11 @@ export default function AppNavbar() {
       {isConnected && (
         <NavbarContent className="hidden sm:flex gap-4" justify="center">
           <NavbarItem>
+            <Link color="foreground" href="/scan">
+              Scan
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
             <Link color="foreground" href="/contacts">
               Contacts
             </Link>
@@ -137,6 +142,11 @@ export default function AppNavbar() {
 
       {isConnected && (
         <NavbarMenu className="bg-default/90 backdrop-blur-md border-default-200/20">
+          <NavbarMenuItem>
+            <Link color="foreground" href="/scan" className="w-full py-2">
+              🔍 Scan
+            </Link>
+          </NavbarMenuItem>
           <NavbarMenuItem>
             <Link color="foreground" href="/contacts" className="w-full py-2">
               📧 Contacts
