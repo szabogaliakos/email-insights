@@ -541,7 +541,7 @@ export class GmailAPIScanner {
           });
 
           const messageIds = messagesList.data.messages?.map((msg) => msg.id).filter(Boolean) || [];
-          nextPageToken = messagesList.data.nextPageToken;
+          nextPageToken = messagesList.data.nextPageToken ?? undefined;
 
           if (messageIds.length === 0) {
             console.log(`[Gmail API] No more messages for job ${jobId}`);
@@ -577,7 +577,7 @@ export class GmailAPIScanner {
             const headers = message.payload.headers || [];
 
             const getHeader = (name: string): string | undefined => {
-              return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value;
+              return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? undefined;
             };
 
             const from = getHeader("From");
