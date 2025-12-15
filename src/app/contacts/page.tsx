@@ -11,6 +11,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@herou
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import type { Selection, SortDescriptor } from "@heroui/react";
+import StepProgress from "@/components/StepProgress";
 
 type LabeledContact = {
   email: string;
@@ -117,7 +118,30 @@ export default function ContactsPage() {
   const isConnected = true; // If we got here, user is authenticated
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto relative">
+      {/* Navigation Arrows */}
+      <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-50">
+        <button
+          onClick={() => router.push("/scan")}
+          className="bg-primary/20 hover:bg-primary border border-primary text-primary hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
+          title="Back: Scan Inbox"
+        >
+          <span className="text-xl">←</span>
+        </button>
+      </div>
+      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
+        <button
+          onClick={() => router.push("/labels")}
+          className="bg-secondary/20 hover:bg-secondary border border-secondary text-secondary hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
+          title="Next: Create Labels"
+        >
+          <span className="text-xl">→</span>
+        </button>
+      </div>
+
+      {/* Step Progress Bar */}
+      <StepProgress currentStep={2} />
+
       <div className="mb-12 text-center">
         <h1 className="text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Contact Analytics

@@ -9,6 +9,7 @@ import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import type { GmailLabel } from "@/lib/firestore";
+import StepProgress from "@/components/StepProgress";
 
 const columns = [
   { name: "NAME", uid: "name" },
@@ -351,7 +352,21 @@ export default function LabelsPage() {
   }, [deduplicatedLabels]);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto relative">
+      {/* Navigation Arrows */}
+      <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-50">
+        <button
+          onClick={() => router.push("/contacts")}
+          className="bg-primary/20 hover:bg-primary border border-primary text-primary hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
+          title="Back: Manage Contacts"
+        >
+          <span className="text-xl">←</span>
+        </button>
+      </div>
+
+      {/* Step Progress Bar */}
+      <StepProgress currentStep={3} />
+
       <div className="mb-12 text-center">
         <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
           Label Management

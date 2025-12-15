@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@heroui/button";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
+import StepProgress from "@/components/StepProgress";
 
 interface IMAPProgress {
   hasProgress: boolean;
@@ -355,7 +356,21 @@ export default function ScanPage() {
   const isConnected = true; // If we got here, user is authenticated
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto relative">
+      {/* Navigation Arrows */}
+      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
+        <button
+          onClick={() => router.push("/contacts")}
+          className="bg-primary/20 hover:bg-primary border border-primary text-primary hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
+          title="Next: Manage Contacts"
+        >
+          <span className="text-xl">→</span>
+        </button>
+      </div>
+
+      {/* Step Progress Bar */}
+      <StepProgress currentStep={1} />
+
       <div className="mb-12 text-center">
         <h1 className="text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Gmail Scanner
