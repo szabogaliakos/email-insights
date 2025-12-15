@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/google";
-import { IMAPHeaderScanner } from "@/lib/imap-header-scanner";
+import { IMAPHeaderScanner, GmailAPIScanner } from "@/lib/imap-header-scanner";
 import { saveContactSnapshot, loadContactSnapshot, saveIMAPProgress, loadIMAPProgress } from "@/lib/firestore";
 import { createJob, processJob, getJob } from "@/lib/job-manager";
 
@@ -121,24 +121,92 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Default: Use existing API-based job processing
-    const { gmail, email } = await getGmailClient(refreshToken);
+    // Default: Use new Gmail API scanner with job-based progress tracking
+    console.log("[SCAN] Using Gmail API method with job-based progress tracking");
 
-    // Create new job
-    const jobId = await createJob(email);
+    const { auth: oauth2Client, gmail, email } = await getGmailClient(refreshToken);
 
-    // Process first batch immediately
-    const job = await getJob(jobId);
-    if (job) {
-      await processJob(job);
+    try {
+      // Create Gmail API job with progress tracking
+      const apiJobId = `gmailapi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Start Gmail API scanning in background (don't await)
+      GmailAPIScanner.scanMessagesAPI(refreshToken, email, apiJobId).then(
+        async (result) => {
+          console.log(`[Gmail API] Scan completed: Found ${result.contacts} contacts from ${result.scanned} messages`);
+
+          // Load existing contact data to merge with
+          const existingContacts = await loadContactSnapshot(email);
+
+          // Merge new scan with existing contacts
+          const allSenders = [...new Set([...(existingContacts?.senders || []), ...result.senders])];
+          const allRecipients = [...new Set([...(existingContacts?.recipients || []), ...result.recipients])];
+          const allMerged = [...new Set([...allSenders, ...allRecipients])];
+          const totalMessagesScanned = (existingContacts?.messageSampleCount || 0) + result.scanned;
+
+          // Save merged contacts
+          const snapshot = {
+            senders: allSenders,
+            recipients: allRecipients,
+            merged: allMerged,
+            messageSampleCount: totalMessagesScanned,
+            updatedAt: new Date().toISOString(),
+          };
+          await saveContactSnapshot(email, snapshot);
+
+          // Update job as completed
+          GmailAPIScanner.updateGmailApiJob(apiJobId, {
+            status: "completed",
+            scanned: result.scanned,
+            totalScanned: totalMessagesScanned,
+            contacts: result.contacts,
+            totalContacts: allMerged.length,
+            message: result.message,
+            completedAt: new Date().toISOString(),
+          });
+
+          console.log(
+            `[Gmail API] Contacts saved: ${allMerged.length} total unique contacts from ${totalMessagesScanned} messages`
+          );
+        },
+        (error) => {
+          console.error("[Gmail API] Scan failed:", error);
+          GmailAPIScanner.updateGmailApiJob(apiJobId, {
+            status: "failed",
+            error: error.message,
+            completedAt: new Date().toISOString(),
+          });
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        method: "api",
+        jobId: apiJobId,
+        status: "started",
+        message: "Gmail API scan started with progress tracking",
+      });
+    } catch (apiError: any) {
+      console.error("[Gmail API] Failed to start Gmail API scan:", apiError);
+
+      const errorMessage = apiError.message || "Unknown Gmail API error";
+      let userFriendlyMessage = "Gmail API scanning failed.";
+
+      if (errorMessage.includes("quota") || errorMessage.includes("rate")) {
+        userFriendlyMessage = "Gmail API rate limit exceeded. Please try again later or use IMAP scanning.";
+      } else if (errorMessage.includes("auth") || errorMessage.includes("token")) {
+        userFriendlyMessage = "Gmail authentication expired. Please reconnect your Gmail account.";
+      }
+
+      return NextResponse.json(
+        {
+          error: userFriendlyMessage,
+          details: errorMessage,
+          suggestion: "You can try IMAP scanning with an app password for faster results.",
+        },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({
-      jobId,
-      status: "started",
-      email,
-      method: "api",
-    });
   } catch (error) {
     console.error("Start scan error:", error);
     return NextResponse.json({ error: "Failed to start scan" }, { status: 500 });

@@ -203,41 +203,6 @@ export default function ContactsPage() {
     }
   };
 
-  const startPollingStatus = (jobId: string) => {
-    stopPolling(); // Clear any existing polling
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/gmail/sync/status/${jobId}`);
-        if (!res.ok) {
-          stopPolling();
-          setError("Failed to check scan status");
-          return;
-        }
-        const status = await res.json();
-        setScanStatus(status);
-
-        // Stop polling if job is done
-        if (status.status !== "running") {
-          stopPolling();
-          // Refresh data if complete
-          if (status.status === "completed") {
-            contactsLoadedRef.current = false; // Allow refresh
-            await loadContactsOnce();
-          }
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-        stopPolling();
-      }
-    };
-
-    // Poll immediately, then every 5 seconds
-    poll();
-    const intervalId = setInterval(poll, 5000);
-    setScanPollingInterval(intervalId);
-  };
-
   const startPollingIMAPStatus = (jobId: string) => {
     stopPolling(); // Clear any existing polling
 
@@ -271,6 +236,42 @@ export default function ContactsPage() {
     // Poll immediately, then every 2 seconds for IMAP (faster updates)
     poll();
     const intervalId = setInterval(poll, 2000);
+    setScanPollingInterval(intervalId);
+  };
+
+  const startPollingGmailApiStatus = (jobId: string) => {
+    stopPolling(); // Clear any existing polling
+
+    const poll = async () => {
+      try {
+        // Use Gmail API-specific status endpoint
+        const res = await fetch(`/api/gmail/sync/api-status/${jobId}`);
+        if (!res.ok) {
+          stopPolling();
+          setError("Failed to check Gmail API scan status");
+          return;
+        }
+        const status = await res.json();
+        setScanStatus(status);
+
+        // Stop polling if job is done
+        if (status.status !== "running") {
+          stopPolling();
+          // Refresh data if complete
+          if (status.status === "completed") {
+            contactsLoadedRef.current = false; // Allow refresh
+            await loadContactsOnce();
+          }
+        }
+      } catch (err) {
+        console.error("[Gmail API] Polling error:", err);
+        stopPolling();
+      }
+    };
+
+    // Poll immediately, then every 3 seconds for Gmail API (conservative to respect rate limits)
+    poll();
+    const intervalId = setInterval(poll, 3000);
     setScanPollingInterval(intervalId);
   };
 
@@ -318,7 +319,7 @@ export default function ContactsPage() {
             if (apiRes.ok) {
               const apiJson = await apiRes.json();
               setScanJobId(apiJson.jobId);
-              startPollingStatus(apiJson.jobId);
+              startPollingGmailApiStatus(apiJson.jobId);
             } else {
               setError("Both IMAP and API scanning failed. Please check your Gmail connection.");
             }
@@ -328,15 +329,19 @@ export default function ContactsPage() {
           setError(json.message || json.error || "Failed to start IMAP scan");
         }
       } else {
-        // API scanning uses job polling
+        // Gmail API scanning uses new job-based progress tracking
         if (!res.ok) {
-          setError("Failed to start scan. Try reconnecting your Google account.");
+          setError("Failed to start Gmail API scan. Please check your connection.");
           setSyncing(false);
           return;
         }
 
-        setScanJobId(json.jobId);
-        startPollingStatus(json.jobId); // Use regular API polling
+        if (json.success && json.jobId) {
+          setScanJobId(json.jobId);
+          startPollingGmailApiStatus(json.jobId); // Use new Gmail API polling
+        } else {
+          setError(json.error || "Failed to start Gmail API scan");
+        }
       }
     } catch (err) {
       setError("Failed to start scan");

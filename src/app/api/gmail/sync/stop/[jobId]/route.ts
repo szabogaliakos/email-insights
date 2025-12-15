@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cancelJob, getJob } from "@/lib/job-manager";
-import { IMAPHeaderScanner } from "@/lib/imap-header-scanner";
+import { IMAPHeaderScanner, GmailAPIScanner } from "@/lib/imap-header-scanner";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
@@ -14,6 +14,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       IMAPHeaderScanner.updateIMAPJob(jobId, {
+        status: "cancelled",
+        completedAt: new Date().toISOString(),
+        message: "Scan cancelled by user",
+      });
+
+      return NextResponse.json({
+        jobId,
+        status: "cancelled",
+        message: "Scan cancelled. Data collected so far has been saved.",
+      });
+    }
+
+    // Handle Gmail API jobs (stored in memory)
+    if (jobId.startsWith("gmailapi_")) {
+      const gmailJob = GmailAPIScanner.getGmailApiJob(jobId);
+      if (!gmailJob) {
+        return NextResponse.json({ error: "Gmail API job not found" }, { status: 404 });
+      }
+
+      GmailAPIScanner.updateGmailApiJob(jobId, {
         status: "cancelled",
         completedAt: new Date().toISOString(),
         message: "Scan cancelled by user",
