@@ -85,13 +85,8 @@ export default function AppNavbar() {
             </Link>
           </NavbarItem>
           <NavbarItem>
-            <Link color="foreground" href="/labels">
-              Labels
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link color="foreground" href="/filters">
-              Filters
+            <Link color="foreground" href="/label-rules">
+              Label Rules
             </Link>
           </NavbarItem>
           <NavbarItem>
@@ -153,13 +148,8 @@ export default function AppNavbar() {
             </Link>
           </NavbarMenuItem>
           <NavbarMenuItem>
-            <Link color="foreground" href="/labels" className="w-full py-2">
-              🏷️ Labels
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link color="foreground" href="/filters" className="w-full py-2">
-              ⚙️ Filters
+            <Link color="foreground" href="/label-rules" className="w-full py-2">
+              📋 Label Rules
             </Link>
           </NavbarMenuItem>
           <NavbarMenuItem>

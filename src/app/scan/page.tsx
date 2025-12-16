@@ -613,7 +613,7 @@ export default function ScanPage() {
             variant="solid"
             color="secondary"
             className="justify-start py-6"
-            onPress={() => router.push("/labels")}
+            onPress={() => router.push("/contacts")}
           >
             <div className="text-left">
               <div className="font-semibold">🏷️ Create Labels & Filters</div>

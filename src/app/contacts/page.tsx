@@ -7,6 +7,7 @@ import { Pagination } from "@heroui/pagination";
 import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import { Input, Textarea } from "@heroui/input";
+import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
@@ -51,27 +52,6 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
-  useEffect(() => {
-    // Check authentication first
-    checkAuth();
-
-    // Check for error in URL params (from OAuth callback)
-    const params = new URLSearchParams(window.location.search);
-    const urlError = params.get("error");
-    if (urlError) {
-      setError(decodeURIComponent(urlError));
-      // Clean up URL
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, []);
-
-  // Load contacts when page or search changes
-  useEffect(() => {
-    if (authChecked) {
-      loadContacts(currentPage, searchQuery);
-    }
-  }, [currentPage, authChecked]);
-
   const checkAuth = async () => {
     try {
       const res = await fetch("/api/gmail/data");
@@ -104,6 +84,27 @@ export default function ContactsPage() {
     setContactsData(json);
     setLoading(false);
   };
+
+  useEffect(() => {
+    // Check authentication first
+    checkAuth();
+
+    // Check for error in URL params (from OAuth callback)
+    const params = new URLSearchParams(window.location.search);
+    const urlError = params.get("error");
+    if (urlError) {
+      setError(decodeURIComponent(urlError));
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Load contacts when page or search changes
+  useEffect(() => {
+    if (authChecked) {
+      loadContacts(currentPage, searchQuery);
+    }
+  }, [currentPage, authChecked]);
 
   const labeledContacts = useMemo((): LabeledContact[] => {
     if (!contactsData?.contacts) return [];
@@ -238,12 +239,41 @@ function ContactsTable({
   });
   const [debouncedSearchTimer, setDebouncedSearchTimer] = useState<NodeJS.Timeout | null>(null);
 
+  // Labels for autocomplete
+  const [availableLabels, setAvailableLabels] = useState<any[]>([]);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+
   // Modal states for "Create label and automation"
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
   const [labelName, setLabelName] = useState("");
+  const [selectedLabelKey, setSelectedLabelKey] = useState<string | null>(null);
   const [automationQuery, setAutomationQuery] = useState("");
   const [archiveEnabled, setArchiveEnabled] = useState(true);
   const [creatingAutomation, setCreatingAutomation] = useState(false);
+
+  // Load labels for autocomplete
+  const loadLabels = async () => {
+    setLabelsLoading(true);
+    try {
+      const res = await fetch("/api/gmail/labels");
+      if (!res.ok) {
+        console.error("Failed to load labels");
+        return;
+      }
+      const data = await res.json();
+      const labels = data.labels || [];
+      setAvailableLabels(labels);
+    } catch (err) {
+      console.error("Error loading labels:", err);
+    } finally {
+      setLabelsLoading(false);
+    }
+  };
+
+  // Load labels when component mounts
+  useEffect(() => {
+    loadLabels();
+  }, []);
 
   const headerColumns = useMemo(() => {
     return columns;
@@ -427,6 +457,7 @@ function ContactsTable({
                     const emails = selectedContacts.map((contact) => contact.email).join(" OR ");
                     setAutomationQuery(emails);
                     setLabelName(""); // Reset label name
+                    setSelectedLabelKey(null); // Reset selected label
                     setArchiveEnabled(true); // Default to archive enabled
                     setAutomationModalOpen(true);
                   }}
@@ -591,15 +622,33 @@ function ContactsTable({
               <li>• Optionally archive emails from these contacts (remove from inbox)</li>
             </ul>
 
-            <Input
+            <Autocomplete
               label="Label Name"
               placeholder="e.g., Important Contacts"
               value={labelName}
+              selectedKey={selectedLabelKey}
               onValueChange={setLabelName}
+              onSelectionChange={(key) => {
+                setSelectedLabelKey(key as string | null);
+                if (key) {
+                  const selectedLabel = availableLabels.find((label) => label.id === key);
+                  if (selectedLabel) {
+                    setLabelName(selectedLabel.name);
+                  }
+                }
+              }}
+              allowsCustomValue
               required
               className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 mb-4"
-              description="This will be the name of the new Gmail label"
-            />
+              description="Choose an existing label or type a new label name to create it"
+              isLoading={labelsLoading}
+            >
+              {availableLabels
+                .filter((label) => label.type !== "system")
+                .map((label) => (
+                  <AutocompleteItem key={label.id}>{label.name}</AutocompleteItem>
+                ))}
+            </Autocomplete>
 
             <Textarea
               label="Filter Query"
@@ -629,6 +678,7 @@ function ContactsTable({
               onPress={() => {
                 setAutomationModalOpen(false);
                 setLabelName("");
+                setSelectedLabelKey(null);
                 setAutomationQuery("");
                 setArchiveEnabled(true);
               }}
@@ -652,17 +702,29 @@ function ContactsTable({
 
                 try {
                   // Create the automation by calling the Firestore filters API with the label creation logic
+                  const isExistingLabel = selectedLabelKey !== null;
+                  const payload: any = {
+                    name: `Auto-label: ${labelName}`,
+                    query: automationQuery,
+                    archive: archiveEnabled,
+                  };
+
+                  if (isExistingLabel) {
+                    // Use the existing label
+                    const selectedLabel = availableLabels.find((label) => label.id === selectedLabelKey);
+                    if (selectedLabel) {
+                      payload.labelIds = [selectedLabel.id];
+                    }
+                  } else {
+                    // Create a new label
+                    payload.createLabel = true;
+                    payload.labelName = labelName;
+                  }
+
                   const res = await fetch("/api/firestore/filters", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      name: `Auto-label: ${labelName}`,
-                      query: automationQuery,
-                      labelIds: [], // We'll create the label inline in the API
-                      archive: archiveEnabled,
-                      createLabel: true,
-                      labelName: labelName,
-                    }),
+                    body: JSON.stringify(payload),
                   });
 
                   if (!res.ok) {

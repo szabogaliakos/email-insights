@@ -14,8 +14,57 @@ export async function GET() {
   }
 
   try {
-    const { email } = await getGmailClient(refreshToken);
-    const labels = await loadLabels(email);
+    const { gmail, email } = await getGmailClient(refreshToken);
+    const response = await gmail.users.labels.list({ userId: "me" });
+
+    if (!response.data.labels) {
+      return NextResponse.json({ labels: [] });
+    }
+
+    // Transform Gmail API labels to our format
+    const labels = response.data.labels.map((label) => {
+      const result: any = {
+        id: label.id!,
+        name: label.name!,
+        type: (label.type as "system" | "user") || "user",
+      };
+
+      // Only include Gmail fields if they are defined
+      if (label.labelListVisibility !== undefined) result.labelListVisibility = label.labelListVisibility;
+      if (label.messageListVisibility !== undefined) result.messageListVisibility = label.messageListVisibility;
+      if (label.threadsTotal !== undefined) result.threadsTotal = label.threadsTotal;
+      if (label.threadsUnread !== undefined) result.threadsUnread = label.threadsUnread;
+      if (label.messagesTotal !== undefined) result.messagesTotal = label.messagesTotal;
+      if (label.messagesUnread !== undefined) result.messagesUnread = label.messagesUnread;
+
+      if (label.color) {
+        result.color = {
+          textColor: label.color.textColor || "",
+          backgroundColor: label.color.backgroundColor || "",
+        };
+      }
+
+      return result;
+    });
+
+    // Build hierarchy based on label names (Gmail doesn't provide parent-child directly)
+    // Labels with '/' indicate hierarchy
+    const labelMap = new Map<string, any>();
+    labels.forEach((label) => labelMap.set(label.id, label));
+
+    labels.forEach((label) => {
+      const parts = label.name.split("/");
+      if (parts.length > 1) {
+        const parentName = parts.slice(0, -1).join("/");
+        const parent = Array.from(labelMap.values()).find((l) => l.name === parentName);
+        if (parent) {
+          label.parentId = parent.id;
+          if (!parent.childrenIds) parent.childrenIds = [];
+          parent.childrenIds.push(label.id);
+        }
+      }
+    });
+
     return NextResponse.json({ labels });
   } catch (error: any) {
     console.error("Failed to load labels:", error);

@@ -2,37 +2,50 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
-import { Checkbox } from "@heroui/checkbox";
-import { Select, SelectItem } from "@heroui/select";
 import { Chip } from "@heroui/chip";
-import { addToast } from "@heroui/toast";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import { Tooltip } from "@heroui/tooltip";
 import { useRouter } from "next/navigation";
-import type { GmailFilter, GmailLabel } from "@/lib/firestore";
 import StepProgress from "@/components/StepProgress";
 
+type GmailApiFilter = {
+  id: string;
+  criteria: {
+    from?: string;
+    to?: string;
+    subject?: string;
+    query?: string;
+    has?: string;
+    sizeOperator?: string;
+    size?: string;
+  };
+  action: {
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  };
+};
+
 const columns = [
-  { name: "NAME", uid: "name" },
-  { name: "STATUS", uid: "status" },
   { name: "CRITERIA", uid: "criteria" },
-  { name: "LABELS", uid: "labels" },
-  { name: "ACTIONS", uid: "actions" },
+  { name: "LABELS APPLIED", uid: "labels" },
+  { name: "ARCHIVE", uid: "archive" },
 ];
 
 export default function LabelRulesPage() {
   const router = useRouter();
-  const [filters, setFilters] = useState<GmailFilter[]>([]);
-  const [labels, setLabels] = useState<GmailLabel[]>([]);
+  const [filters, setFilters] = useState<GmailApiFilter[]>([]);
+  const [labels, setLabels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [criteriaModalOpen, setCriteriaModalOpen] = useState(false);
+  const [selectedFilterForModal, setSelectedFilterForModal] = useState<GmailApiFilter | null>(null);
 
   useEffect(() => {
     // Check authentication first
     checkAuth();
-    loadFilters();
+    loadLabelRules();
     loadLabels();
   }, []);
 
@@ -50,26 +63,32 @@ export default function LabelRulesPage() {
     setAuthChecked(true);
   };
 
-  const loadFilters = async () => {
+  const loadLabelRules = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/firestore/filters");
+      // Fetch all Gmail filters directly from Gmail API (not firestore)
+      const res = await fetch("/api/gmail/filters");
       if (res.status === 401) {
         setError("Not connected to Gmail. Please connect first.");
         setLoading(false);
         return;
       }
       if (!res.ok) {
-        setError("Failed to load filters");
+        setError("Failed to load label rules");
         setLoading(false);
         return;
       }
       const data = await res.json();
-      const rawFilters: GmailFilter[] = data.filters || [];
-      setFilters(rawFilters);
-    } catch (err) {
-      setError("Failed to load filters");
+      const allFilters: GmailApiFilter[] = data.filters || [];
+
+      // Filter to only show label rules (filters that apply labels)
+      const labelRules = allFilters.filter(
+        (filter) => filter.action?.addLabelIds && filter.action.addLabelIds.length > 0
+      );
+      setFilters(labelRules);
+    } catch (err: any) {
+      setError(`Failed to load label rules: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -87,150 +106,55 @@ export default function LabelRulesPage() {
     }
   };
 
-  // Modal states
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-
-  // Form states
-  const [filterName, setFilterName] = useState("");
-  const [filterQuery, setFilterQuery] = useState("");
-  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
-  const [archiveImmediately, setArchiveImmediately] = useState(false);
-
-  const createFilter = async () => {
-    if (!filterName.trim() || !filterQuery.trim()) {
-      addToast({
-        title: "Validation error",
-        description: "Filter name and query are required",
-        color: "danger",
-      });
-      return;
-    }
-
-    const filterData = {
-      name: filterName.trim(),
-      query: filterQuery.trim(),
-      labelIds: Array.from(selectedLabels),
-      archive: archiveImmediately,
-    };
-
-    try {
-      const res = await fetch("/api/firestore/filters", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(filterData),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        addToast({
-          title: "Create failed",
-          description: data.error || "Failed to create filter",
-          color: "danger",
-        });
-        return;
-      }
-
-      // Reload filters to show the new one
-      await loadFilters();
-      setCreateModalOpen(false);
-      resetForm();
-      addToast({
-        title: "Rule created",
-        description: "Filter has been saved as a label rule. Use 'Apply to Gmail' to activate it.",
-        color: "success",
-      });
-    } catch (err) {
-      addToast({
-        title: "Create failed",
-        description: "Failed to create filter",
-        color: "danger",
-      });
-    }
+  // Format criteria for display
+  const formatCriteria = (criteria: any) => {
+    const parts: string[] = [];
+    if (criteria.from) parts.push(`From: ${criteria.from}`);
+    if (criteria.to) parts.push(`To: ${criteria.to}`);
+    if (criteria.subject) parts.push(`Subject: ${criteria.subject}`);
+    if (criteria.query) parts.push(criteria.query);
+    if (criteria.has) parts.push(`Has: ${criteria.has}`);
+    if (criteria.size && criteria.sizeOperator) parts.push(`Size: ${criteria.sizeOperator} ${criteria.size}`);
+    return parts.length > 0 ? parts.join(", ") : "Any email";
   };
 
-  const publishToGmail = async (filterId: string) => {
-    try {
-      const res = await fetch("/api/firestore/filters", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filterId }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        addToast({
-          title: "Apply failed",
-          description: data.error || "Failed to apply rule to Gmail",
-          color: "danger",
-        });
-        return;
-      }
-
-      // Reload filters to show the updated status
-      await loadFilters();
-      addToast({
-        title: "Rule applied",
-        description: "Label rule has been applied to Gmail",
-        color: "success",
-      });
-    } catch (err) {
-      addToast({
-        title: "Apply failed",
-        description: "Failed to apply rule to Gmail",
-        color: "danger",
-      });
-    }
+  // Count criteria parts for tooltip
+  const getCriteriaPartsCount = (criteria: any) => {
+    let count = 0;
+    if (criteria.from) count++;
+    if (criteria.to) count++;
+    if (criteria.subject) count++;
+    if (criteria.query) count++;
+    if (criteria.has) count++;
+    if (criteria.size && criteria.sizeOperator) count++;
+    return count > 0 ? count : 1; // At least "Any email"
   };
 
-  const getLabelNames = (labelIds?: string[]) => {
-    if (!labelIds || labelIds.length === 0) return "None";
-    return labelIds.map((id) => labels.find((l) => l.id === id)?.name || id).join(", ");
-  };
-
-  const resetForm = () => {
-    setFilterName("");
-    setFilterQuery("");
-    setSelectedLabels(new Set());
-    setArchiveImmediately(false);
-  };
-
-  // Ensure filters are always unique
-  const deduplicatedFilters = useMemo(
-    () => Array.from(new Map(filters.map((filter) => [filter.id, filter])).values()),
-    [filters]
-  );
-
-  const renderCell = (filter: GmailFilter, columnKey: React.Key) => {
+  // Render cell function for table
+  const renderCell = (filter: GmailApiFilter, columnKey: React.Key) => {
     switch (columnKey) {
-      case "name":
-        return (
-          <div>
-            <span className="font-medium text-white">{filter.name}</span>
-            {filter.gmailId && <span className="text-xs text-gray-400 block">Gmail ID: {filter.gmailId}</span>}
-          </div>
-        );
-      case "status":
-        return (
-          <Chip
-            color={filter.status === "published" ? "success" : "warning"}
-            variant="flat"
-            size="sm"
-            className="capitalize"
-          >
-            {filter.status === "published" ? "✅ Applied" : "📝 Rule"}
-          </Chip>
-        );
       case "criteria":
+        const partsCount = getCriteriaPartsCount(filter.criteria);
         return (
-          <span className="text-sm text-gray-300" title={filter.query}>
-            {filter.query}
-          </span>
+          <Tooltip content={`${partsCount} criteria ${partsCount === 1 ? "part" : "parts"}`} placement="top">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-left justify-start text-sm text-gray-300 hover:text-white hover:bg-white/5"
+              onPress={() => {
+                setSelectedFilterForModal(filter);
+                setCriteriaModalOpen(true);
+              }}
+            >
+              Criteria
+            </Button>
+          </Tooltip>
         );
       case "labels":
         return (
           <div className="flex flex-wrap gap-1">
-            {filter.labelIds && filter.labelIds.length > 0 ? (
-              filter.labelIds.map((labelId) => {
+            {filter.action.addLabelIds && filter.action.addLabelIds.length > 0 ? (
+              filter.action.addLabelIds.map((labelId) => {
                 const label = labels.find((l) => l.id === labelId);
                 return (
                   <Chip
@@ -250,30 +174,19 @@ export default function LabelRulesPage() {
             ) : (
               <span className="text-sm text-gray-400">No labels</span>
             )}
-            {filter.archive && (
-              <Chip size="sm" variant="flat" color="secondary" className="text-xs">
-                📁 Archive
-              </Chip>
-            )}
           </div>
         );
-      case "actions":
-        return (
-          <div className="flex gap-2">
-            {filter.status === "draft" && (
-              <Button
-                size="sm"
-                variant="bordered"
-                className="border-green-400/50 text-green-400 hover:border-green-400 hover:bg-green-400/10"
-                onPress={() => publishToGmail(filter.id)}
-              >
-                🚀 Apply to Gmail
-              </Button>
-            )}
-          </div>
-        );
+      case "archive":
+        if (filter.action.removeLabelIds?.includes("INBOX")) {
+          return (
+            <Chip size="sm" variant="flat" color="secondary" className="text-xs">
+              📁 Archive
+            </Chip>
+          );
+        }
+        return <span className="text-sm text-gray-400">Keep in inbox</span>;
       default:
-        return filter[columnKey as keyof GmailFilter] ?? "";
+        return "-";
     }
   };
 
@@ -291,9 +204,9 @@ export default function LabelRulesPage() {
       </div>
       <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
         <button
-          onClick={() => router.push("/label-jobs")}
+          onClick={() => router.push("/settings")}
           className="bg-success/20 hover:bg-success border border-success text-success hover:text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-md"
-          title="Next: Review Jobs"
+          title="Next: Settings"
         >
           <span className="text-xl">→</span>
         </button>
@@ -307,74 +220,22 @@ export default function LabelRulesPage() {
           Label Rules
         </h1>
         <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-          Create intelligent automation rules that automatically label and organize your emails. Set up filters to
-          streamline your Gmail workflow.
+          View all Gmail filters that automatically apply labels to your emails. These are real-time rules from your
+          Gmail account.
         </p>
         <div className="w-24 h-1 bg-gradient-to-r from-emerald-400 to-teal-400 mx-auto mt-4 rounded-full"></div>
       </div>
 
       <div className="mb-8 flex gap-6 justify-center">
         <Button
-          color="primary"
-          variant="bordered"
-          className="border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition-all duration-300"
-          onPress={async () => {
-            try {
-              setLoading(true);
-              setError(null);
-
-              // Sync filters from Gmail to our database
-              const res = await fetch("/api/gmail/filters", {
-                method: "PUT",
-              });
-
-              if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.details || data.error || "Failed to sync from Gmail");
-              }
-
-              const syncResult = await res.json();
-
-              // Refresh the local filters
-              await loadFilters();
-
-              addToast({
-                title: "Sync completed",
-                description: `Successfully synced ${syncResult.synced} rules from Gmail`,
-                color: "success",
-              });
-            } catch (error: any) {
-              console.error("Sync error:", error);
-              setError(`Sync failed: ${error.message}`);
-
-              addToast({
-                title: "Sync failed",
-                description: error.message || "Failed to sync rules from Gmail",
-                color: "danger",
-              });
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          📡 Sync from Gmail
-        </Button>
-        <Button
-          variant="solid"
-          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-          onPress={() => setCreateModalOpen(true)}
-        >
-          ➕ Create Rule
-        </Button>
-        <Button
           variant="ghost"
           className="text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300"
           onPress={() => {
-            loadFilters();
+            loadLabelRules();
             loadLabels();
           }}
         >
-          ⟳ Refresh
+          ⟳ Refresh from Gmail
         </Button>
       </div>
 
@@ -389,19 +250,22 @@ export default function LabelRulesPage() {
 
       <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-emerald-900/20">
         <div className="p-6 border-b border-white/10">
-          <h2 className="text-2xl font-semibold text-white mb-2">📋 Rules Dashboard</h2>
-          <p className="text-sm text-gray-400">{loading ? "Loading..." : `${filters.length} rules configured`}</p>
+          <h2 className="text-2xl font-semibold text-white mb-2">📋 Active Label Rules</h2>
+          <p className="text-sm text-gray-400">
+            {loading ? "Loading from Gmail..." : `${filters.length} label rules found in your Gmail account`}
+          </p>
         </div>
 
         <div className="p-6">
           {loading ? (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-400">Loading rules...</p>
+              <p className="text-sm text-gray-400">Loading label rules from Gmail...</p>
             </div>
           ) : filters.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-gray-400">
-                No rules yet. Create your first label rule to automate email organization.
+                No label rules found. Create automation rules from the contacts page to add label rules to your Gmail
+                account.
               </p>
             </div>
           ) : (
@@ -411,7 +275,7 @@ export default function LabelRulesPage() {
               bottomContent={
                 <div className="py-2 px-2 flex justify-between items-center">
                   <span className="w-[30%] text-small text-default-400">
-                    {`Showing ${deduplicatedFilters.length} rules`}
+                    {`Showing ${filters.length} label rules from Gmail`}
                   </span>
                 </div>
               }
@@ -431,7 +295,7 @@ export default function LabelRulesPage() {
                   </TableColumn>
                 )}
               </TableHeader>
-              <TableBody emptyContent={"No rules found"} items={deduplicatedFilters}>
+              <TableBody emptyContent={"No label rules found"} items={filters}>
                 {(item) => (
                   <TableRow key={item.id}>
                     {(columnKey) => <TableCell key={columnKey}>{renderCell(item, columnKey)}</TableCell>}
@@ -443,81 +307,173 @@ export default function LabelRulesPage() {
         </div>
       </div>
 
-      {/* Create Rule Modal */}
-      <Modal isOpen={createModalOpen} onOpenChange={setCreateModalOpen}>
+      {/* Criteria Details Modal */}
+      <Modal isOpen={criteriaModalOpen} onOpenChange={setCriteriaModalOpen} size="lg">
         <ModalContent className="bg-gray-800 border border-gray-600">
-          <ModalHeader className="text-white bg-gray-800">➕ Create New Label Rule</ModalHeader>
+          <ModalHeader className="text-white bg-gray-800">🔍 Filter Criteria Details</ModalHeader>
           <ModalBody className="bg-gray-800">
-            <p className="text-sm text-gray-300 mb-4">
-              Create a rule that will be saved as a label rule. You can then apply it to Gmail when ready for automatic
-              email organization.
-            </p>
+            {selectedFilterForModal && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">📋 Filter Conditions</h3>
+                  <div className="space-y-3">
+                    {selectedFilterForModal.criteria.from && (
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="text-emerald-400 font-mono w-16">From:</span>
+                          {selectedFilterForModal.criteria.from.includes(" OR ") ? (
+                            <div className="flex flex-wrap gap-1">
+                              {selectedFilterForModal.criteria.from.split(" OR ").map((addr, idx) => (
+                                <Chip
+                                  key={idx}
+                                  size="sm"
+                                  variant="flat"
+                                  className="text-xs bg-blue-900/50 text-blue-200"
+                                >
+                                  {addr.trim()}
+                                </Chip>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">{selectedFilterForModal.criteria.from}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {selectedFilterForModal.criteria.to && (
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="text-emerald-400 font-mono w-16">To:</span>
+                          {selectedFilterForModal.criteria.to.includes(" OR ") ? (
+                            <div className="flex flex-wrap gap-1">
+                              {selectedFilterForModal.criteria.to.split(" OR ").map((addr, idx) => (
+                                <Chip
+                                  key={idx}
+                                  size="sm"
+                                  variant="flat"
+                                  className="text-xs bg-purple-900/50 text-purple-200"
+                                >
+                                  {addr.trim()}
+                                </Chip>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">{selectedFilterForModal.criteria.to}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {selectedFilterForModal.criteria.subject && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-mono w-16">Subject:</span>
+                        <span className="text-gray-300">{selectedFilterForModal.criteria.subject}</span>
+                      </div>
+                    )}
+                    {selectedFilterForModal.criteria.query && (
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="text-emerald-400 font-mono w-16">Query:</span>
+                          {selectedFilterForModal.criteria.query.includes(" OR ") ? (
+                            <div className="space-y-1">
+                              {selectedFilterForModal.criteria.query.split(" OR ").map((part, idx) => (
+                                <div key={idx} className="ml-16">
+                                  <span className="text-gray-300">{part.trim()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">{selectedFilterForModal.criteria.query}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {selectedFilterForModal.criteria.has && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-mono w-16">Has:</span>
+                        <span className="text-gray-300">{selectedFilterForModal.criteria.has}</span>
+                      </div>
+                    )}
+                    {selectedFilterForModal.criteria.size && selectedFilterForModal.criteria.sizeOperator && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-mono w-16">Size:</span>
+                        <span className="text-gray-300">
+                          {selectedFilterForModal.criteria.sizeOperator} {selectedFilterForModal.criteria.size}
+                        </span>
+                      </div>
+                    )}
+                    {!selectedFilterForModal.criteria.from &&
+                      !selectedFilterForModal.criteria.to &&
+                      !selectedFilterForModal.criteria.subject &&
+                      !selectedFilterForModal.criteria.query &&
+                      !selectedFilterForModal.criteria.has &&
+                      !(selectedFilterForModal.criteria.size && selectedFilterForModal.criteria.sizeOperator) && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-emerald-400 font-mono">Any email</span>
+                        </div>
+                      )}
+                  </div>
+                </div>
 
-            <Input
-              label="Rule Name"
-              placeholder="e.g., Work Projects Rule"
-              value={filterName}
-              onValueChange={setFilterName}
-              required
-              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-            />
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">🏷️ Labels Applied</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedFilterForModal.action.addLabelIds &&
+                    selectedFilterForModal.action.addLabelIds.length > 0 ? (
+                      selectedFilterForModal.action.addLabelIds.map((labelId) => {
+                        const label = labels.find((l) => l.id === labelId);
+                        return (
+                          <Chip
+                            key={labelId}
+                            size="sm"
+                            variant="flat"
+                            className="text-sm"
+                            style={{
+                              backgroundColor: label?.color?.backgroundColor || "#666",
+                              color: label?.color?.textColor || "#fff",
+                            }}
+                          >
+                            {label?.name || labelId}
+                          </Chip>
+                        );
+                      })
+                    ) : (
+                      <span className="text-gray-400">No labels</span>
+                    )}
+                  </div>
+                </div>
 
-            <Input
-              label="Email Criteria"
-              placeholder="from:important@client.com OR subject:project"
-              value={filterQuery}
-              onValueChange={setFilterQuery}
-              description="Use Gmail search syntax to match emails for this rule"
-              required
-              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-            />
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">📁 Archive Behavior</h3>
+                  <div className="flex items-center gap-3">
+                    {selectedFilterForModal.action.removeLabelIds?.includes("INBOX") ? (
+                      <>
+                        <span className="text-secondary">📁</span>
+                        <span className="text-gray-300">
+                          Emails matching this rule will be archived (removed from inbox)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-400">📬</span>
+                        <span className="text-gray-300">Emails remain in inbox</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-            <Select
-              label="Apply Labels"
-              placeholder="Select labels to apply automatically"
-              selectionMode="multiple"
-              selectedKeys={selectedLabels}
-              onSelectionChange={(keys) => setSelectedLabels(new Set(keys as Set<string>))}
-              className="bg-gray-700 border-gray-600 text-white"
-            >
-              {labels
-                .filter((label) => label.type === "user")
-                .map((label) => (
-                  <SelectItem key={label.id} className="text-white">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded"
-                        style={{ backgroundColor: label.color?.backgroundColor || "#666" }}
-                      />
-                      {label.name}
-                    </div>
-                  </SelectItem>
-                ))}
-            </Select>
-
-            <Checkbox isSelected={archiveImmediately} onValueChange={setArchiveImmediately} className="mt-4">
-              <span className="text-sm text-gray-300">📁 Also archive emails (remove from inbox)</span>
-            </Checkbox>
-
-            <div className="text-xs text-gray-400 mt-4 bg-gray-900 p-3 rounded">
-              <strong>Examples:</strong>
-              <br />
-              • from:boss@company.com - Emails from your boss
-              <br />
-              • subject:urgent OR subject:ASAP - Time-sensitive emails
-              <br />• has:attachment larger:5M - Large attachments
-            </div>
+                <div className="text-xs text-gray-500 bg-gray-900 p-3 rounded">
+                  <strong>Gmail Filter ID:</strong> {selectedFilterForModal.id}
+                </div>
+              </div>
+            )}
           </ModalBody>
           <ModalFooter className="bg-gray-800 border-t border-gray-600">
             <Button
               variant="ghost"
-              onPress={() => setCreateModalOpen(false)}
+              onPress={() => setCriteriaModalOpen(false)}
               className="text-gray-300 hover:text-white hover:bg-gray-600"
             >
-              Cancel
-            </Button>
-            <Button color="primary" onPress={createFilter} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              💾 Save Rule
+              Close
             </Button>
           </ModalFooter>
         </ModalContent>
