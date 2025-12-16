@@ -106,6 +106,37 @@ export default function LabelRulesPage() {
     }
   };
 
+  const handleCreateLabelJob = async (filter: GmailApiFilter) => {
+    if (!filter.action.addLabelIds || filter.action.addLabelIds.length === 0) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/gmail/label-jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filterId: filter.id,
+          ruleCriteria: filter.criteria,
+          labelIds: filter.action.addLabelIds,
+        }),
+      });
+
+      if (response.ok) {
+        // Navigate to label jobs page
+        router.push("/label-jobs");
+      } else {
+        const error = await response.json();
+        alert(`Failed to create label job: ${error.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error("Error creating label job:", err);
+      alert("Failed to create label job. Please try again.");
+    }
+  };
+
   // Format criteria for display
   const formatCriteria = (criteria: any) => {
     const parts: string[] = [];
@@ -177,14 +208,27 @@ export default function LabelRulesPage() {
           </div>
         );
       case "archive":
-        if (filter.action.removeLabelIds?.includes("INBOX")) {
-          return (
-            <Chip size="sm" variant="flat" color="secondary" className="text-xs">
-              📁 Archive
-            </Chip>
-          );
-        }
-        return <span className="text-sm text-gray-400">Keep in inbox</span>;
+        return (
+          <div className="flex items-center gap-2">
+            {filter.action.removeLabelIds?.includes("INBOX") ? (
+              <Chip size="sm" variant="flat" color="secondary" className="text-xs">
+                📁 Archive
+              </Chip>
+            ) : (
+              <span className="text-sm text-gray-400">Keep in inbox</span>
+            )}
+            {filter.action.addLabelIds && filter.action.addLabelIds.length > 0 && (
+              <Button
+                size="sm"
+                variant="flat"
+                className="text-xs bg-green-600/20 text-green-400 hover:bg-green-600/30"
+                onPress={() => handleCreateLabelJob(filter)}
+              >
+                📧 Apply to Existing
+              </Button>
+            )}
+          </div>
+        );
       default:
         return "-";
     }

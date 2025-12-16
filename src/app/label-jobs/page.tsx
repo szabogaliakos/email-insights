@@ -10,13 +10,20 @@ interface AutomationJob {
   id: string;
   name: string;
   description: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
   type: "scan" | "filter_sync" | "label_application";
   progress: number; // 0-100
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
   error?: string;
+  // Label job specific fields
+  filterId?: string;
+  ruleCriteria?: any;
+  labelIds?: string[];
+  messagesProcessed?: number;
+  messagesMatched?: number;
+  labelsApplied?: number;
 }
 
 export default function LabelJobsPage() {
@@ -25,32 +32,6 @@ export default function LabelJobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-
-  // Simulated jobs data - in a real implementation, this would come from an API
-  const mockJobs: AutomationJob[] = [
-    {
-      id: "scan_001",
-      name: "Initial Gmail Scan",
-      description: "Scanning Gmail inbox for contact extraction and analysis",
-      status: "completed",
-      type: "scan",
-      progress: 100,
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      startedAt: new Date(Date.now() - 86000000).toISOString(),
-      completedAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: "rules_sync_001",
-      name: "Filter Rules Synchronization",
-      description: "Syncing label rules and filters from Gmail",
-      status: "completed",
-      type: "filter_sync",
-      progress: 100,
-      createdAt: new Date(Date.now() - 43200000).toISOString(),
-      startedAt: new Date(Date.now() - 43000000).toISOString(),
-      completedAt: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ];
 
   useEffect(() => {
     // Check authentication first
@@ -76,14 +57,23 @@ export default function LabelJobsPage() {
     setLoading(true);
     setError(null);
     try {
-      // For now, we'll use mock data since the jobs API doesn't exist yet
-      // In production, this would call something like /api/automation/jobs
-      setTimeout(() => {
-        setJobs(mockJobs);
+      const res = await fetch("/api/gmail/label-jobs");
+      if (res.status === 401) {
+        setError("Not authenticated");
         setLoading(false);
-      }, 1000);
+        return;
+      }
+      if (!res.ok) {
+        setError("Failed to load jobs");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setJobs(data.jobs || []);
     } catch (err) {
       setError("Failed to load automation jobs");
+      setLoading(false);
+    } finally {
       setLoading(false);
     }
   };
@@ -151,6 +141,128 @@ export default function LabelJobsPage() {
     return new Date(dateString).toLocaleString();
   };
 
+  const handleStartJob = async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/gmail/label-jobs/${jobId}/start`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        addToast({
+          title: "Job started",
+          description: "Label application job has been started",
+          color: "success",
+        });
+        loadJobs(); // Refresh the jobs list
+      } else {
+        const error = await response.json();
+        addToast({
+          title: "Failed to start job",
+          description: error.error || "Unknown error",
+          color: "danger",
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: "Error",
+        description: "Failed to start job",
+        color: "danger",
+      });
+    }
+  };
+
+  const handlePauseJob = async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/gmail/label-jobs/${jobId}/pause`, {
+        method: "PUT",
+      });
+
+      if (response.ok) {
+        addToast({
+          title: "Job paused",
+          description: "Label application job has been paused",
+          color: "warning",
+        });
+        loadJobs(); // Refresh the jobs list
+      } else {
+        const error = await response.json();
+        addToast({
+          title: "Failed to pause job",
+          description: error.error || "Unknown error",
+          color: "danger",
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: "Error",
+        description: "Failed to pause job",
+        color: "danger",
+      });
+    }
+  };
+
+  const handleResumeJob = async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/gmail/label-jobs/${jobId}/resume`, {
+        method: "PATCH",
+      });
+
+      if (response.ok) {
+        addToast({
+          title: "Job resumed",
+          description: "Label application job has been resumed",
+          color: "success",
+        });
+        loadJobs(); // Refresh the jobs list
+      } else {
+        const error = await response.json();
+        addToast({
+          title: "Failed to resume job",
+          description: error.error || "Unknown error",
+          color: "danger",
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: "Error",
+        description: "Failed to resume job",
+        color: "danger",
+      });
+    }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    if (!confirm("Are you sure you want to cancel this job?")) return;
+
+    try {
+      const response = await fetch(`/api/gmail/label-jobs/${jobId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        addToast({
+          title: "Job cancelled",
+          description: "Label application job has been cancelled",
+          color: "warning",
+        });
+        loadJobs(); // Refresh the jobs list
+      } else {
+        const error = await response.json();
+        addToast({
+          title: "Failed to cancel job",
+          description: error.error || "Unknown error",
+          color: "danger",
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: "Error",
+        description: "Failed to cancel job",
+        color: "danger",
+      });
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto relative">
       {/* Navigation Arrow - Only left arrow since this is the final step */}
@@ -179,59 +291,6 @@ export default function LabelJobsPage() {
       </div>
 
       <div className="mb-8 flex gap-6 justify-center">
-        <Button
-          variant="bordered"
-          className="border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all duration-300"
-          onPress={async () => {
-            // Simulate triggering a real job (rule application or scan)
-            const newJob: AutomationJob = {
-              id: `job_${Date.now()}`,
-              name: "Manual Rule Application Scan",
-              description: "Applying pending label rules to recent emails",
-              status: "pending",
-              type: "scan",
-              progress: 0,
-              createdAt: new Date().toISOString(),
-            };
-
-            setJobs((prev) => [newJob, ...prev]);
-
-            // Simulate job processing
-            setTimeout(() => {
-              setJobs((prev) =>
-                prev.map((job) =>
-                  job.id === newJob.id
-                    ? { ...job, status: "running", startedAt: new Date().toISOString(), progress: 15 }
-                    : job
-                )
-              );
-            }, 2000);
-
-            setTimeout(() => {
-              setJobs((prev) =>
-                prev.map((job) => (job.id === newJob.id ? { ...job, status: "running", progress: 75 } : job))
-              );
-            }, 5000);
-
-            setTimeout(() => {
-              setJobs((prev) =>
-                prev.map((job) =>
-                  job.id === newJob.id
-                    ? { ...job, status: "completed", progress: 100, completedAt: new Date().toISOString() }
-                    : job
-                )
-              );
-            }, 8000);
-
-            addToast({
-              title: "Job started",
-              description: "Label rules application job has been initiated",
-              color: "success",
-            });
-          }}
-        >
-          🚀 Run Rule Application
-        </Button>
         <Button
           variant="ghost"
           className="text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300"
@@ -307,12 +366,66 @@ export default function LabelJobsPage() {
                       </div>
                     </div>
 
+                    {/* Job Control Buttons */}
+                    <div className="flex gap-2 mt-4">
+                      {job.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          className="bg-green-600/20 text-green-400 hover:bg-green-600/30"
+                          onPress={() => handleStartJob(job.id)}
+                        >
+                          ▶️ Start
+                        </Button>
+                      )}
+
+                      {job.status === "running" && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          className="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30"
+                          onPress={() => handlePauseJob(job.id)}
+                        >
+                          ⏸️ Pause
+                        </Button>
+                      )}
+
+                      {job.status === "paused" && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                          onPress={() => handleResumeJob(job.id)}
+                        >
+                          ▶️ Resume
+                        </Button>
+                      )}
+
+                      {["running", "paused", "pending"].includes(job.status) && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          className="bg-red-600/20 text-red-400 hover:bg-red-600/30"
+                          onPress={() => handleCancelJob(job.id)}
+                        >
+                          ⏹️ Cancel
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Job Status Messages */}
                     {job.status === "running" && (
-                      <div className="bg-black/20 rounded-lg p-3">
+                      <div className="bg-black/20 rounded-lg p-3 mt-4">
                         <div className="flex items-center gap-2 text-sm text-green-400">
                           <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-400 border-t-transparent"></div>
                           Processing...
                         </div>
+                      </div>
+                    )}
+
+                    {job.status === "paused" && (
+                      <div className="bg-yellow-900/30 border border-yellow-400/50 rounded-lg p-3 mt-4">
+                        <div className="text-sm text-yellow-300">⏸️ Job is paused. Click Resume to continue.</div>
                       </div>
                     )}
 
@@ -332,6 +445,28 @@ export default function LabelJobsPage() {
 
                     {job.status === "failed" && (
                       <div className="text-xs text-red-400 mt-4">❌ Failed - Check error details above</div>
+                    )}
+
+                    {job.status === "cancelled" && (
+                      <div className="text-xs text-gray-400 mt-4">⏹️ Job was cancelled</div>
+                    )}
+
+                    {/* Label Job Specific Info */}
+                    {job.type === "label_application" && (
+                      <div className="mt-4 grid grid-cols-3 gap-4 text-xs text-gray-400">
+                        <div>
+                          <div className="font-medium">Messages Processed</div>
+                          <div>{job.messagesProcessed || 0}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium">Labels Applied</div>
+                          <div>{job.labelsApplied || 0}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium">Messages Matched</div>
+                          <div>{job.messagesMatched || 0}</div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}

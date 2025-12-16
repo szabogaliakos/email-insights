@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calculateTimeElapsed, estimateTimeRemaining, getJob, processJob } from "@/lib/job-manager";
+import {
+  calculateTimeElapsed,
+  estimateTimeRemaining,
+  getJob,
+  processJob,
+  processLabelJob,
+  type Job,
+  type ScanJob,
+  type LabelJob,
+} from "@/lib/job-manager";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
@@ -12,33 +21,54 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // If job is still running, try to process more
     if (job.status === "running") {
-      await processJob(job);
+      if ("type" in job && job.type === "label_application") {
+        await processLabelJob(job as LabelJob);
+      } else {
+        await processJob(job as ScanJob);
+      }
     }
 
     // Recheck status after potential processing
     const updatedJob = (await getJob(jobId)) || job;
     const elapsed = calculateTimeElapsed(updatedJob);
-    const estimatedTimeRemaining = estimateTimeRemaining(updatedJob);
 
-    const response: any = {
+    const response: Record<string, unknown> = {
       jobId: updatedJob.id,
       status: updatedJob.status,
       messagesProcessed: updatedJob.messagesProcessed,
-      addressesFound: updatedJob.addressesFound,
       timeElapsed: elapsed,
-      estimatedTimeRemaining,
     };
+
+    // Add job-specific fields
+    if ("type" in updatedJob && updatedJob.type === "label_application") {
+      // Label job specific fields
+      response.messagesMatched = updatedJob.messagesMatched;
+      response.labelsApplied = updatedJob.labelsApplied;
+      response.filterId = updatedJob.filterId;
+    } else {
+      // Scan job specific fields
+      response.addressesFound = (updatedJob as ScanJob).addressesFound;
+      response.estimatedTimeRemaining = estimateTimeRemaining(updatedJob as ScanJob);
+    }
 
     if (updatedJob.error) {
       response.error = updatedJob.error;
     }
 
     if (updatedJob.status === "completed") {
-      response.completeMessage = "Scan complete! All messages processed.";
+      if ("type" in updatedJob && updatedJob.type === "label_application") {
+        response.completeMessage = "Label application complete! All matching messages have been labeled.";
+      } else {
+        response.completeMessage = "Scan complete! All messages processed.";
+      }
     } else if (updatedJob.status === "cancelled") {
-      response.completeMessage = "Scan was cancelled. Data collected so far has been saved.";
+      if ("type" in updatedJob && updatedJob.type === "label_application") {
+        response.completeMessage = "Label application was cancelled.";
+      } else {
+        response.completeMessage = "Scan was cancelled. Data collected so far has been saved.";
+      }
     } else if (updatedJob.status === "failed") {
-      response.completeMessage = "Scan failed. Try restarting.";
+      response.completeMessage = "Job failed. Try restarting.";
     }
 
     return NextResponse.json(response);
