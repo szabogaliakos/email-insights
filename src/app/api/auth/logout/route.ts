@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     cookieStore.delete("gmail_access_token");
 
     // Create response that redirects to homepage
-    const response = NextResponse.redirect(new URL("/", request.url));
+    // Use request.nextUrl.origin to get the proper base URL for the deployment
+    const baseUrl = request.nextUrl.origin || new URL(request.url).origin;
+    const response = NextResponse.redirect(new URL("/", baseUrl));
 
     // Ensure the auth cookies are cleared in the redirect response
     response.cookies.delete("gmail_refresh_token");

@@ -27,15 +27,36 @@ export const AcmeLogo = () => {
 };
 
 export default function AppNavbar() {
+  // Cache authentication state in sessionStorage to prevent flickering
+  const getCachedAuthState = () => {
+    try {
+      const cached = sessionStorage.getItem("gmailinsights_auth");
+      return cached ? JSON.parse(cached) : { authUrl: null, userEmail: null, isConnected: false, lastChecked: 0 };
+    } catch {
+      return { authUrl: null, userEmail: null, isConnected: false, lastChecked: 0 };
+    }
+  };
+
+  const setCachedAuthState = (state: { authUrl: string | null; userEmail: string | null; isConnected: boolean }) => {
+    try {
+      sessionStorage.setItem("gmailinsights_auth", JSON.stringify({ ...state, lastChecked: Date.now() }));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Initialize with default state for SSR compatibility
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const fetchAuthUrl = async () => {
     const res = await fetch("/api/auth/url");
     if (!res.ok) return;
     const json = await res.json();
     setAuthUrl(json.url);
+    return json.url;
   };
 
   const checkConnection = async () => {
@@ -46,17 +67,40 @@ export default function AppNavbar() {
         if (data.email) {
           setUserEmail(data.email);
           setIsConnected(true);
+          return true;
         }
       }
     } catch (err) {
       // Not connected
     }
+    // Reset state if not connected
+    setUserEmail(null);
+    setIsConnected(false);
+    return false;
   };
 
+  // Load cached state after hydration to prevent SSR mismatch
   useEffect(() => {
-    fetchAuthUrl();
-    checkConnection();
+    const cachedState = getCachedAuthState();
+    setAuthUrl(cachedState.authUrl);
+    setUserEmail(cachedState.userEmail);
+    setIsConnected(cachedState.isConnected);
+    setHasHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (hasHydrated) {
+      fetchAuthUrl();
+      checkConnection();
+    }
+  }, [hasHydrated]);
+
+  // Cache state changes (only after hydration)
+  useEffect(() => {
+    if (hasHydrated) {
+      setCachedAuthState({ authUrl, userEmail, isConnected });
+    }
+  }, [authUrl, userEmail, isConnected, hasHydrated]);
 
   const handleConnect = () => {
     if (authUrl) {
