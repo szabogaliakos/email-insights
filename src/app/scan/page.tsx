@@ -593,35 +593,6 @@ export default function ScanPage() {
           </div>
         </div>
       )}
-
-      {/* Quick Actions */}
-      <div className="bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl p-6 shadow-lg">
-        <h2 className="text-2xl font-bold text-foreground mb-4">Quick Actions</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Button
-            variant="solid"
-            color="primary"
-            className="justify-start py-6"
-            onPress={() => router.push("/contacts")}
-          >
-            <div className="text-left">
-              <div className="font-semibold">📧 View Contacts</div>
-              <div className="text-sm opacity-80">Browse and manage your contact database</div>
-            </div>
-          </Button>
-          <Button
-            variant="solid"
-            color="secondary"
-            className="justify-start py-6"
-            onPress={() => router.push("/contacts")}
-          >
-            <div className="text-left">
-              <div className="font-semibold">🏷️ Create Labels & Filters</div>
-              <div className="text-sm opacity-80">Automate email organization</div>
-            </div>
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

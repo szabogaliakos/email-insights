@@ -65,110 +65,73 @@ export default function AppNavbar() {
   };
 
   return (
-    <Navbar isBordered className="bg-default/60 backdrop-blur-md border-default-200/20" maxWidth="full">
-      <NavbarBrand>
-        <AcmeLogo />
-        <p className="font-bold text-foreground">Gmail Insights</p>
-      </NavbarBrand>
+    <>
+      <Navbar isBordered className="bg-default/60 backdrop-blur-md border-default-200/20" maxWidth="full">
+        <NavbarBrand>
+          <Link href="/" className="flex items-center gap-2 cursor-pointer">
+            <AcmeLogo />
+            <p className="font-bold text-foreground">Gmail Insights</p>
+          </Link>
+        </NavbarBrand>
 
-      {/* Navigation links - only show when authenticated */}
-      {isConnected && (
-        <NavbarContent className="hidden sm:flex gap-4" justify="center">
-          <NavbarItem>
-            <Link color="foreground" href="/scan">
-              Scan
-            </Link>
+        {/* Navigation links - only show when authenticated */}
+        {isConnected && (
+          <NavbarContent className="hidden sm:flex gap-4" justify="center">
+            <NavbarItem>
+              <Link color="foreground" href="/scan">
+                Dashboard
+              </Link>
+            </NavbarItem>
+          </NavbarContent>
+        )}
+
+        <NavbarContent justify="end">
+          <NavbarItem className="hidden lg:flex">
+            {isConnected && userEmail && <span className="text-sm text-primary font-mono">{userEmail}</span>}
           </NavbarItem>
+
           <NavbarItem>
-            <Link color="foreground" href="/contacts">
-              Contacts
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link color="foreground" href="/label-rules">
-              Label Rules
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link color="foreground" href="/settings">
-              Settings
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link color="foreground" href="/">
-              Home
-            </Link>
+            {isConnected ? (
+              <Button
+                as={Link}
+                color="danger"
+                variant="bordered"
+                className="border-danger-500/50 text-danger hover:bg-danger/10 text-sm"
+                href="/api/auth/logout"
+              >
+                Logout
+              </Button>
+            ) : (
+              <Button
+                color="primary"
+                variant="solid"
+                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-primary-foreground text-sm"
+                onPress={handleConnect}
+                isDisabled={!authUrl}
+                size="md"
+              >
+                Sign in with Gmail
+              </Button>
+            )}
           </NavbarItem>
         </NavbarContent>
-      )}
+      </Navbar>
 
-      <NavbarContent justify="end">
-        <NavbarItem className="hidden lg:flex">
-          {isConnected && userEmail && <span className="text-sm text-primary font-mono">{userEmail}</span>}
-        </NavbarItem>
-
-        {isConnected && <NavbarMenuToggle className="sm:hidden" />}
-
-        <NavbarItem>
-          {isConnected ? (
-            <Button
-              as={Link}
-              color="danger"
-              variant="bordered"
-              className="border-danger-500/50 text-danger hover:bg-danger/10 text-sm"
-              href="/api/auth/logout"
-            >
-              Logout
-            </Button>
-          ) : (
-            <Button
-              color="primary"
-              variant="solid"
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-primary-foreground text-sm"
-              onPress={handleConnect}
-              isDisabled={!authUrl}
-              size="md"
-            >
-              Sign in with Gmail
-            </Button>
-          )}
-        </NavbarItem>
-      </NavbarContent>
-
+      {/* Floating Action Button */}
       {isConnected && (
-        <NavbarMenu className="bg-default/90 backdrop-blur-md border-default-200/20">
-          <NavbarMenuItem>
-            <Link color="foreground" href="/scan" className="w-full py-2">
-              🔍 Scan
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link color="foreground" href="/contacts" className="w-full py-2">
-              📧 Contacts
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link color="foreground" href="/label-rules" className="w-full py-2">
-              📋 Label Rules
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link color="foreground" href="/settings" className="w-full py-2">
-              🔧 Settings
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link color="foreground" href="/" className="w-full py-2">
-              🏠 Home
-            </Link>
-          </NavbarMenuItem>
-          {userEmail && (
-            <NavbarMenuItem className="lg:hidden">
-              <span className="text-sm text-primary-600 font-mono py-2 block">Connected: {userEmail}</span>
-            </NavbarMenuItem>
-          )}
-        </NavbarMenu>
+        <div className="fixed bottom-6 right-6 z-50">
+          <Button
+            as={Link}
+            variant="solid"
+            color="primary"
+            size="lg"
+            href="/settings"
+            className="shadow-2xl hover:shadow-primary/20 transition-all duration-200"
+          >
+            ⚙️ Settings
+          </Button>
+        </div>
       )}
-    </Navbar>
+    </>
   );
 }

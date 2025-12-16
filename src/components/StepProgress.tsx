@@ -2,11 +2,13 @@
 
 import React from "react";
 import { CheckIcon } from "@heroui/shared-icons";
+import { useRouter } from "next/navigation";
 
 interface Step {
   id: number;
   title: string;
   description: string;
+  url: string;
 }
 
 interface StepProgressProps {
@@ -18,25 +20,31 @@ const steps: Step[] = [
     id: 1,
     title: "Scan Inbox",
     description: "Discover your contacts",
+    url: "/scan",
   },
   {
     id: 2,
     title: "Manage Contacts",
     description: "Review and organize",
+    url: "/contacts",
   },
   {
     id: 3,
     title: "Label Rules",
-    description: "Create automation rules",
+    description: "View automation rules",
+    url: "/label-rules",
   },
   {
     id: 4,
     title: "Label Jobs",
     description: "Monitor automation",
+    url: "/label-jobs",
   },
 ];
 
 export default function StepProgress({ currentStep }: StepProgressProps) {
+  const router = useRouter();
+
   return (
     <div className="w-full max-w-4xl mx-auto mb-8">
       <div className="flex items-center justify-between">
@@ -49,13 +57,14 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
             <React.Fragment key={step.id}>
               {/* Step Circle */}
               <div className="flex flex-col items-center">
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                <button
+                  onClick={() => router.push(step.url)}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 ${
                     isCompleted
                       ? "bg-success border-success text-success-foreground"
                       : isCurrent
                       ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : "bg-default-100 border-default-300 text-default-500"
+                      : "bg-default-100 border-default-300 text-default-500 hover:bg-default-200"
                   }`}
                 >
                   {isCompleted ? (
@@ -63,10 +72,13 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
                   ) : (
                     <span className="font-semibold text-sm">{step.id}</span>
                   )}
-                </div>
+                </button>
 
                 {/* Step Text */}
-                <div className="text-center mt-3 max-w-[120px]">
+                <button
+                  onClick={() => router.push(step.url)}
+                  className="text-center mt-3 max-w-[120px] hover:opacity-80 transition-opacity"
+                >
                   <p
                     className={`text-sm font-medium transition-colors ${
                       isCompleted || isCurrent ? "text-foreground" : "text-default-500"
@@ -81,7 +93,7 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
                   >
                     {step.description}
                   </p>
-                </div>
+                </button>
               </div>
 
               {/* Connector Line (except for last step) */}

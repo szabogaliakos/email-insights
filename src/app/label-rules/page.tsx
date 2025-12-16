@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Button } from "@heroui/button";
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
 import { Chip } from "@heroui/chip";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/drawer";
 import { Tooltip } from "@heroui/tooltip";
 import { useRouter } from "next/navigation";
 import StepProgress from "@/components/StepProgress";
@@ -307,11 +307,11 @@ export default function LabelRulesPage() {
         </div>
       </div>
 
-      {/* Criteria Details Modal */}
-      <Modal isOpen={criteriaModalOpen} onOpenChange={setCriteriaModalOpen} size="lg">
-        <ModalContent className="bg-gray-800 border border-gray-600">
-          <ModalHeader className="text-white bg-gray-800">🔍 Filter Criteria Details</ModalHeader>
-          <ModalBody className="bg-gray-800">
+      {/* Criteria Details Sidesheet */}
+      <Drawer isOpen={criteriaModalOpen} onOpenChange={setCriteriaModalOpen} placement="right">
+        <DrawerContent className="bg-gray-800 border-l border-gray-600">
+          <DrawerHeader className="text-white bg-gray-800">🔍 Filter Criteria Details</DrawerHeader>
+          <DrawerBody className="bg-gray-800">
             {selectedFilterForModal && (
               <div className="space-y-4">
                 <div>
@@ -466,8 +466,8 @@ export default function LabelRulesPage() {
                 </div>
               </div>
             )}
-          </ModalBody>
-          <ModalFooter className="bg-gray-800 border-t border-gray-600">
+          </DrawerBody>
+          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
             <Button
               variant="ghost"
               onPress={() => setCriteriaModalOpen(false)}
@@ -475,9 +475,9 @@ export default function LabelRulesPage() {
             >
               Close
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Checkbox } from "@heroui/checkbox";
 import { Button } from "@heroui/button";
 import { Input, Textarea } from "@heroui/input";
 import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/drawer";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import type { Selection, SortDescriptor } from "@heroui/react";
@@ -608,11 +608,11 @@ function ContactsTable({
         )}
       </div>
 
-      {/* Create Label and Automation Modal */}
-      <Modal isOpen={automationModalOpen} onOpenChange={setAutomationModalOpen} size="lg">
-        <ModalContent className="bg-gray-800 border border-gray-600">
-          <ModalHeader className="text-white bg-gray-800">🚀 Create Label and Automation</ModalHeader>
-          <ModalBody className="bg-gray-800">
+      {/* Create Label and Automation Drawer */}
+      <Drawer isOpen={automationModalOpen} onOpenChange={setAutomationModalOpen} placement="right">
+        <DrawerContent className="bg-gray-800 border-l border-gray-600">
+          <DrawerHeader className="text-white bg-gray-800">🚀 Create Label and Automation</DrawerHeader>
+          <DrawerBody className="bg-gray-800">
             <p className="text-sm text-gray-300 mb-6">
               Create a Gmail label and automated filter for the selected contacts. This will:
             </p>
@@ -671,8 +671,8 @@ function ContactsTable({
               this label to emails from the selected contacts. You can modify or delete these later from the Labels and
               Filters pages.
             </div>
-          </ModalBody>
-          <ModalFooter className="bg-gray-800 border-t border-gray-600">
+          </DrawerBody>
+          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
             <Button
               variant="ghost"
               onPress={() => {
@@ -774,9 +774,9 @@ function ContactsTable({
             >
               {creatingAutomation ? "Creating..." : "🚀 Create Automation"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
