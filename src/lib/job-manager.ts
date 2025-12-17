@@ -413,6 +413,23 @@ export async function cancelLabelJob(jobId: string): Promise<boolean> {
   return true;
 }
 
+export async function deleteLabelJob(jobId: string): Promise<boolean> {
+  const job = await loadLabelJob(jobId);
+  if (!job) return false;
+
+  // Only allow deletion of jobs that are not running
+  if (job.status === "running") return false;
+
+  try {
+    const db = getFirestore();
+    await db.collection("_labelJobs").doc(jobId).delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting label job:", error);
+    return false;
+  }
+}
+
 export async function processLabelJob(job: LabelJob): Promise<void> {
   if (job.status !== "running") {
     return;

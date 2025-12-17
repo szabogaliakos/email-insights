@@ -263,6 +263,38 @@ export default function LabelJobsPage() {
     }
   };
 
+  const handleDeleteJob = async (jobId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this job? This action cannot be undone.")) return;
+
+    try {
+      const response = await fetch(`/api/gmail/label-jobs/${jobId}/delete`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        addToast({
+          title: "Job deleted",
+          description: "Label application job has been permanently deleted",
+          color: "danger",
+        });
+        loadJobs(); // Refresh the jobs list
+      } else {
+        const error = await response.json();
+        addToast({
+          title: "Failed to delete job",
+          description: error.error || "Unknown error",
+          color: "danger",
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: "Error",
+        description: "Failed to delete job",
+        color: "danger",
+      });
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto relative">
       {/* Navigation Arrow - Only left arrow since this is the final step */}
@@ -409,6 +441,17 @@ export default function LabelJobsPage() {
                           onPress={() => handleCancelJob(job.id)}
                         >
                           ⏹️ Cancel
+                        </Button>
+                      )}
+
+                      {job.status !== "running" && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          className="bg-red-800/20 text-red-300 hover:bg-red-800/30 border border-red-700/50"
+                          onPress={() => handleDeleteJob(job.id)}
+                        >
+                          🗑️ Delete
                         </Button>
                       )}
                     </div>
