@@ -236,6 +236,7 @@ export default function ScanPage() {
   const handleSync = async () => {
     setSyncing(true);
     setError(null);
+    console.log(`[FRONTEND] Starting scan with method: ${scanMethod}`);
     try {
       const res = await fetch("/api/gmail/sync/start", {
         method: "POST",
@@ -250,6 +251,7 @@ export default function ScanPage() {
       }
 
       const json = await res.json();
+      console.log(`[FRONTEND] Server response:`, json);
 
       if (scanMethod === "imap") {
         // IMAP scanning now uses job-based progress tracking
@@ -504,7 +506,12 @@ export default function ScanPage() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-foreground">🔄 Scanning Gmail Inbox</h3>
-                <p className="text-sm text-primary">AI-powered contact discovery in progress...</p>
+                <p className="text-sm text-primary">
+                  AI-powered contact discovery in progress...
+                  <br />
+                  <strong>Using: {scanMethod === "imap" ? "IMAP Scanner" : "Gmail API Scanner"}</strong>
+                  {scanJobId && <span className="text-xs block mt-1">Job ID: {scanJobId}</span>}
+                </p>
               </div>
             </div>
           </div>

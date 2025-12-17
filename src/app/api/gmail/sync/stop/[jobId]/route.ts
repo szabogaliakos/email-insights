@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cancelJob, getJob } from "@/lib/job-manager";
-import { IMAPHeaderScanner, GmailAPIScanner } from "@/lib/imap-header-scanner";
+import { IMAPHeaderScanner } from "@/lib/scanners/imap-header-scanner";
+import { GmailAPIScanner } from "@/lib/scanners/gmail-api-scanner";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {

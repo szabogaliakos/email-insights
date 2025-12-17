@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/google";
-import { IMAPHeaderScanner, GmailAPIScanner } from "@/lib/imap-header-scanner";
+import { IMAPHeaderScanner } from "@/lib/scanners/imap-header-scanner";
+import { GmailAPIScanner } from "@/lib/scanners/gmail-api-scanner";
 import { saveContactSnapshot, loadContactSnapshot, saveIMAPProgress, loadIMAPProgress } from "@/lib/firestore";
 import { createJob, processJob, getJob } from "@/lib/job-manager";
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     if (method === "imap") {
       // Use fast IMAP scanning with job-based progress tracking
-      console.log("[SCAN] Using IMAP method for contact scanning");
+      console.log("[SCAN] Starting IMAP method for contact scanning");
 
       const { auth: oauth2Client, email } = await getGmailClient(refreshToken);
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
             // Save scan progress for resume capability
             const progressUpdate = {
               mailbox: existingProgress?.mailbox || "[Gmail]/All Mail", // Default mailbox
-              lastMessageScanned: result.lastMessageScanned,
+              lastMessageScanned: result.lastMessageScanned as number, // IMAP uses numbers
               totalMessages: existingProgress?.totalMessages || 0, // This would be the full mailbox size
               contactsFound: allMerged.length,
               chunksCompleted: (existingProgress?.chunksCompleted || 0) + (result.scanned > 0 ? 1 : 0),

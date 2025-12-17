@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { IMAPHeaderScanner } from "@/lib/imap-header-scanner";
+import { IMAPHeaderScanner } from "@/lib/scanners/imap-header-scanner";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {

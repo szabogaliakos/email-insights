@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GmailAPIScanner } from "@/lib/imap-header-scanner";
+import { GmailAPIScanner } from "@/lib/scanners/gmail-api-scanner";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
