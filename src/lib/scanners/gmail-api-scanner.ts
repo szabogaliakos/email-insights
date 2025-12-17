@@ -32,11 +32,27 @@ export class GmailAPIScanner extends BaseScanner {
     const { gmail } = await getGmailClient(refreshToken);
     const batchSize = options.batchSize || 50;
     const query = options.query || "";
+    const maxMessages = options.maxMessages || 2000;
+    const offset = options.offset || 0;
+
+    // Calculate remaining messages to process
+    const remaining = maxMessages - (typeof offset === "number" ? offset : 0);
+    if (remaining <= 0) {
+      return {
+        senders: new Set(),
+        recipients: new Set(),
+        processed: 0,
+        hasMore: false,
+      };
+    }
+
+    // Limit batch size to remaining messages
+    const effectiveBatchSize = Math.min(batchSize, remaining);
 
     // Get message IDs
     const messagesList = await gmail.users.messages.list({
       userId: "me",
-      maxResults: batchSize,
+      maxResults: effectiveBatchSize,
       pageToken: options.offset as string,
       q: query,
     });

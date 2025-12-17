@@ -10,7 +10,7 @@ export const scannerJobs = new Map<string, any>();
 // Firestore-based persistent progress tracking
 export interface ScanProgress {
   userEmail: string;
-  scannerType: "imap" | "gmail-api";
+  scannerType: "imap" | "gmail-api" | string; // Allow any string for testing
   lastMessageScanned: number | string | null;
   totalMessages: number;
   contactsFound: number;
@@ -81,6 +81,9 @@ export interface ScanOptions {
   query?: string;
   batchSize?: number;
   delayBetweenBatches?: number;
+  usePersistence?: boolean;
+  scannerType?: string;
+  repository?: import("./scan-repository").ScanRepository;
 }
 
 export interface BatchResult {
@@ -103,14 +106,21 @@ export abstract class BaseScanner {
     email: string,
     jobId: string,
     scanner: BaseScanner,
-    options: ScanOptions & { usePersistence?: boolean; scannerType?: string } = {}
+    options: ScanOptions = {}
   ): Promise<ScanResult> {
     const { usePersistence = false, scannerType = "unknown" } = options;
 
     // Load existing progress if persistence is enabled
     let existingProgress: ScanProgress | null = null;
     if (usePersistence) {
-      existingProgress = await loadScanProgress(email, scannerType);
+      if (options.repository) {
+        // Use injected repository
+        existingProgress = await options.repository.loadProgress(email, scannerType);
+      } else {
+        // Fallback to direct Firestore access (for backward compatibility)
+        existingProgress = await loadScanProgress(email, scannerType);
+      }
+
       if (existingProgress?.isComplete) {
         console.log(`[${scannerType}] Scan already complete, skipping`);
         return {
@@ -163,13 +173,29 @@ export abstract class BaseScanner {
 
         // Save progress if persistence is enabled
         if (usePersistence) {
-          await saveScanProgress(email, scannerType, {
-            lastMessageScanned: batchResult.nextOffset || null,
-            totalMessages: totalProcessed,
-            contactsFound: sendersSet.size + recipientsSet.size,
-            chunksCompleted,
-            isComplete: !batchResult.hasMore,
-          });
+          if (options.repository) {
+            // Use injected repository
+            await options.repository.saveProgress(email, scannerType, {
+              userEmail: email,
+              scannerType: scannerType as "imap" | "gmail-api" | string,
+              lastMessageScanned: batchResult.nextOffset || null,
+              totalMessages: totalProcessed,
+              contactsFound: sendersSet.size + recipientsSet.size,
+              chunksCompleted,
+              isComplete: !batchResult.hasMore,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          } else {
+            // Fallback to direct Firestore access
+            await saveScanProgress(email, scannerType, {
+              lastMessageScanned: batchResult.nextOffset || null,
+              totalMessages: totalProcessed,
+              contactsFound: sendersSet.size + recipientsSet.size,
+              chunksCompleted,
+              isComplete: !batchResult.hasMore,
+            });
+          }
         }
 
         // Update progress
@@ -201,13 +227,29 @@ export abstract class BaseScanner {
 
       // Mark as complete in persistence
       if (usePersistence) {
-        await saveScanProgress(email, scannerType, {
-          lastMessageScanned: nextOffset || null,
-          totalMessages: totalProcessed,
-          contactsFound: sendersSet.size + recipientsSet.size,
-          chunksCompleted,
-          isComplete: true,
-        });
+        if (options.repository) {
+          // Use injected repository
+          await options.repository.saveProgress(email, scannerType, {
+            userEmail: email,
+            scannerType: scannerType as "imap" | "gmail-api" | string,
+            lastMessageScanned: nextOffset || null,
+            totalMessages: totalProcessed,
+            contactsFound: sendersSet.size + recipientsSet.size,
+            chunksCompleted,
+            isComplete: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          // Fallback to direct Firestore access
+          await saveScanProgress(email, scannerType, {
+            lastMessageScanned: nextOffset || null,
+            totalMessages: totalProcessed,
+            contactsFound: sendersSet.size + recipientsSet.size,
+            chunksCompleted,
+            isComplete: true,
+          });
+        }
       }
 
       // Create final result
