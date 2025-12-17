@@ -1,8 +1,9 @@
 import { ImapFlow } from "imapflow";
 import { getGmailClient } from "../google";
-import { loadIMAPSettings, loadIMAPProgress, saveIMAPProgress } from "../firestore";
+import { loadIMAPSettings } from "../firestore";
 import { PasswordEncryption } from "../crypto";
 import { BaseScanner, ContactScanResult, ScanResult, ScanOptions, BatchResult } from "./base-scanner";
+import { getIMAPConfig } from "./scanner-config";
 
 export class IMAPHeaderScanner extends BaseScanner {
   /**
@@ -30,7 +31,7 @@ export class IMAPHeaderScanner extends BaseScanner {
     const imapSettings = await loadIMAPSettings(email);
 
     // Use configurable options with smart defaults
-    const maxMessages = imapSettings?.maxMessages || 50000; // Increased default for IMAP performance (50K messages)
+    const maxMessages = imapSettings?.maxMessages || 10000; // Increased default for IMAP performance (50K messages)
     const mailbox = imapSettings?.mailbox || "[Gmail]/All Mail"; // Default: All Mail
 
     let imapConfig: any;
@@ -181,12 +182,8 @@ export class IMAPHeaderScanner extends BaseScanner {
    */
   static async scanHeadersAsync(refreshToken: string, email: string, jobId: string): Promise<ScanResult> {
     const scanner = new IMAPHeaderScanner();
-    return BaseScanner.scanAsync(refreshToken, email, jobId, scanner, {
-      maxMessages: 10000, // Increased from 10K to 50K for IMAP speed
-      mailbox: "[Gmail]/All Mail",
-      batchSize: 500, // Increased from 100 to 1000 for IMAP performance
-      delayBetweenBatches: 100, // Minimal delay for IMAP (much faster than Gmail API)
-    });
+    const config = getIMAPConfig(); // Use centralized configuration
+    return BaseScanner.scanAsync(refreshToken, email, jobId, scanner, config);
   }
 
   /**
@@ -197,18 +194,10 @@ export class IMAPHeaderScanner extends BaseScanner {
     email: string,
     options: ScanOptions & { offset?: number | string }
   ): Promise<BatchResult> {
-    // Get IMAP settings and progress
+    // Get IMAP settings
     const imapSettings = await loadIMAPSettings(email);
-    const imapProgress = await loadIMAPProgress(email);
-    const maxMessages = imapSettings?.maxMessages || 10000;
     const mailbox = options.mailbox || imapSettings?.mailbox || "[Gmail]/All Mail";
     const batchSize = options.batchSize || 1000;
-
-    // Calculate scan range (resume from last position or start from offset)
-    const lastScanned = imapProgress?.isComplete
-      ? 0
-      : (options.offset as number) || imapProgress?.lastMessageScanned || 0;
-    const maxToScan = lastScanned + maxMessages;
 
     // Setup IMAP connection
     let imapConfig: any;
@@ -240,12 +229,12 @@ export class IMAPHeaderScanner extends BaseScanner {
     const status = await imap.status(mailbox, { messages: true });
     const totalMailboxMessages = status.messages || 0;
 
-    // Determine actual scan range
-    const startFrom = lastScanned + 1;
-    const endAt = Math.min(totalMailboxMessages, maxToScan);
+    // Calculate scan range (BaseScanner handles resumption)
+    const startFrom = (options.offset as number) || 1;
+    const endAt = Math.min(totalMailboxMessages, startFrom + batchSize - 1);
     const messagesInThisBatch = Math.max(0, endAt - startFrom + 1);
 
-    // Check if we've already scanned everything
+    // Check if we've reached the end
     if (messagesInThisBatch <= 0) {
       await imap.logout();
       return {
@@ -256,16 +245,11 @@ export class IMAPHeaderScanner extends BaseScanner {
       };
     }
 
-    // Calculate message range for this batch
-    const remaining = Math.min(messagesInThisBatch, batchSize);
-    const startSeq = startFrom;
-    const endSeq = Math.min(startFrom + remaining - 1, endAt);
-
     const sendersSet = new Set<string>();
     const recipientsSet = new Set<string>();
 
     try {
-      const messages = imap.fetch(`${startSeq}:${endSeq}`, {
+      const messages = imap.fetch(`${startFrom}:${endAt}`, {
         envelope: true,
         uid: false,
         flags: false,
@@ -293,15 +277,15 @@ export class IMAPHeaderScanner extends BaseScanner {
       await imap.logout();
     }
 
-    const processed = endSeq - startSeq + 1;
-    const hasMore = endAt < totalMailboxMessages && processed >= batchSize;
+    const processed = endAt - startFrom + 1;
+    const hasMore = endAt < totalMailboxMessages;
 
     return {
       senders: sendersSet,
       recipients: recipientsSet,
       processed,
       hasMore,
-      nextOffset: hasMore ? endSeq + 1 : undefined,
+      nextOffset: hasMore ? endAt + 1 : undefined,
     };
   }
 

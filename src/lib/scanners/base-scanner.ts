@@ -2,8 +2,54 @@
  * Base scanner functionality for Gmail contact scanning
  */
 
+import { getFirestore } from "../firestore";
+
 // In-memory storage for job progress (in production, use Redis or database)
 export const scannerJobs = new Map<string, any>();
+
+// Firestore-based persistent progress tracking
+export interface ScanProgress {
+  userEmail: string;
+  scannerType: "imap" | "gmail-api";
+  lastMessageScanned: number | string | null;
+  totalMessages: number;
+  contactsFound: number;
+  chunksCompleted: number;
+  isComplete: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function saveScanProgress(
+  email: string,
+  scannerType: string,
+  progress: Omit<ScanProgress, "userEmail" | "scannerType" | "createdAt" | "updatedAt">
+) {
+  try {
+    const db = getFirestore();
+    const now = new Date().toISOString();
+    const progressWithTimestamps = {
+      ...progress,
+      userEmail: email,
+      scannerType,
+      updatedAt: now,
+    };
+    await db.collection("scanProgress").doc(`${email}_${scannerType}`).set(progressWithTimestamps);
+  } catch (error: any) {
+    console.warn(`Failed to save scan progress: ${error.message}`);
+  }
+}
+
+async function loadScanProgress(email: string, scannerType: string): Promise<ScanProgress | null> {
+  try {
+    const db = getFirestore();
+    const doc = await db.collection("scanProgress").doc(`${email}_${scannerType}`).get();
+    return doc.exists ? (doc.data() as ScanProgress) : null;
+  } catch (error: any) {
+    console.warn(`Failed to load scan progress: ${error.message}`);
+    return null;
+  }
+}
 
 export interface ContactScanResult {
   senders: string[];
@@ -57,8 +103,28 @@ export abstract class BaseScanner {
     email: string,
     jobId: string,
     scanner: BaseScanner,
-    options: ScanOptions = {}
+    options: ScanOptions & { usePersistence?: boolean; scannerType?: string } = {}
   ): Promise<ScanResult> {
+    const { usePersistence = false, scannerType = "unknown" } = options;
+
+    // Load existing progress if persistence is enabled
+    let existingProgress: ScanProgress | null = null;
+    if (usePersistence) {
+      existingProgress = await loadScanProgress(email, scannerType);
+      if (existingProgress?.isComplete) {
+        console.log(`[${scannerType}] Scan already complete, skipping`);
+        return {
+          senders: [],
+          recipients: [],
+          merged: [],
+          scanned: existingProgress.totalMessages,
+          contacts: existingProgress.contactsFound,
+          message: "Scan already completed previously",
+          lastMessageScanned: existingProgress.lastMessageScanned,
+        };
+      }
+    }
+
     // Initialize job
     BaseScanner.updateJob(jobId, {
       status: "running",
@@ -70,8 +136,9 @@ export abstract class BaseScanner {
       // Initialize scanning state
       const sendersSet = new Set<string>();
       const recipientsSet = new Set<string>();
-      let totalProcessed = 0;
-      let nextOffset: number | string | undefined;
+      let totalProcessed = existingProgress?.totalMessages || 0;
+      let nextOffset: number | string | undefined = existingProgress?.lastMessageScanned || undefined;
+      let chunksCompleted = existingProgress?.chunksCompleted || 0;
 
       // Start scanning loop
       while (true) {
@@ -92,6 +159,18 @@ export abstract class BaseScanner {
         batchResult.senders.forEach((addr) => sendersSet.add(addr));
         batchResult.recipients.forEach((addr) => recipientsSet.add(addr));
         totalProcessed += batchResult.processed;
+        chunksCompleted++;
+
+        // Save progress if persistence is enabled
+        if (usePersistence) {
+          await saveScanProgress(email, scannerType, {
+            lastMessageScanned: batchResult.nextOffset || null,
+            totalMessages: totalProcessed,
+            contactsFound: sendersSet.size + recipientsSet.size,
+            chunksCompleted,
+            isComplete: !batchResult.hasMore,
+          });
+        }
 
         // Update progress
         const percentComplete = options.maxMessages
@@ -118,6 +197,17 @@ export abstract class BaseScanner {
         if (options.delayBetweenBatches) {
           await new Promise((resolve) => setTimeout(resolve, options.delayBetweenBatches));
         }
+      }
+
+      // Mark as complete in persistence
+      if (usePersistence) {
+        await saveScanProgress(email, scannerType, {
+          lastMessageScanned: nextOffset || null,
+          totalMessages: totalProcessed,
+          contactsFound: sendersSet.size + recipientsSet.size,
+          chunksCompleted,
+          isComplete: true,
+        });
       }
 
       // Create final result

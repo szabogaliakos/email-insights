@@ -1,5 +1,6 @@
 import { getGmailClient } from "../google";
 import { BaseScanner, ScanResult, ScanOptions, BatchResult } from "./base-scanner";
+import { getGmailAPIConfig } from "./scanner-config";
 
 /**
  * Gmail API-based contact scanner
@@ -16,12 +17,8 @@ export class GmailAPIScanner extends BaseScanner {
     query: string = ""
   ): Promise<ScanResult> {
     const scanner = new GmailAPIScanner();
-    return BaseScanner.scanAsync(refreshToken, email, jobId, scanner, {
-      maxMessages,
-      query,
-      batchSize: 50,
-      delayBetweenBatches: 1000, // Gmail API rate limiting
-    });
+    const config = getGmailAPIConfig({ maxMessages, query }); // Use centralized config with overrides
+    return BaseScanner.scanAsync(refreshToken, email, jobId, scanner, config);
   }
 
   /**
