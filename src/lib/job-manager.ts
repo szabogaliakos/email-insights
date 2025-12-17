@@ -376,16 +376,49 @@ export async function startLabelJob(jobId: string): Promise<boolean> {
   const job = await loadLabelJob(jobId);
   if (!job || job.status !== "pending") return false;
 
+  // Update job status
   await updateLabelJobInDB(jobId, {
     status: "running",
     resumeCount: (job.resumeCount || 0) + 1,
   });
+
+  // Try to create Cloud Tasks task for async processing
+  try {
+    const { createLabelJobTask } = await import("@/lib/cloud-tasks");
+    await createLabelJobTask(jobId, job.email, undefined, {
+      batchSize: 50, // Default batch size
+      pageToken: job.nextPageToken,
+      retryCount: 0,
+    });
+    console.log(`✅ Created Cloud Tasks for label job ${jobId} (async processing)`);
+  } catch (error: any) {
+    console.warn(`⚠️ Cloud Tasks not available for job ${jobId}, falling back to sync processing:`, error.message);
+
+    // Cloud Tasks not available - process synchronously
+    console.log(`🔄 Processing label job ${jobId} synchronously...`);
+    try {
+      await processLabelJob(job);
+      console.log(`✅ Completed synchronous processing for job ${jobId}`);
+    } catch (syncError) {
+      console.error(`❌ Synchronous processing failed for job ${jobId}:`, syncError);
+      await updateLabelJobInDB(jobId, {
+        status: "failed",
+        error: syncError instanceof Error ? syncError.message : "Unknown error during sync processing",
+      });
+      return false;
+    }
+  }
+
   return true;
 }
 
 export async function pauseLabelJob(jobId: string): Promise<boolean> {
   const job = await loadLabelJob(jobId);
   if (!job || job.status !== "running") return false;
+
+  // Note: In a full implementation, you would need to track and cancel
+  // any pending Cloud Tasks for this job. For now, we just update the status.
+  // The worker will check job status and stop processing if paused.
 
   await updateLabelJobInDB(jobId, {
     status: "paused",

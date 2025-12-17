@@ -45,12 +45,14 @@ FIRESTORE_DATABASE_ID=(default)
 ### Google Cloud setup
 
 #### Step 1: Enable Gmail API
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Select or create a project
 3. Navigate to **APIs & Services** → **Library**
 4. Search for "Gmail API" and click **Enable**
 
 #### Step 2: Configure OAuth Consent Screen
+
 1. Go to **APIs & Services** → **OAuth consent screen**
 2. Choose **External** (unless you have a Google Workspace)
 3. Fill in required fields:
@@ -72,6 +74,7 @@ FIRESTORE_DATABASE_ID=(default)
 **Important**: If you see "This app isn't verified", you can still use it in Testing mode. For production, you'll need to submit for verification.
 
 #### Step 3: Create OAuth 2.0 Credentials
+
 1. Go to **APIs & Services** → **Credentials**
 2. Click **Create Credentials** → **OAuth client ID**
 3. Choose **Web application**
@@ -83,11 +86,13 @@ FIRESTORE_DATABASE_ID=(default)
 7. Copy the **Client ID** and **Client Secret** to your `.env.local`
 
 #### Step 4: Enable Firestore API
+
 1. Go to **APIs & Services** → **Library**
 2. Search for "Cloud Firestore API"
 3. Click **Enable**
 
 #### Step 5: Create Firestore Database
+
 1. Go to **Firestore** in the left sidebar (or search for it)
 2. Click **Create database**
 3. Choose **Native mode** (not Datastore mode)
@@ -96,6 +101,7 @@ FIRESTORE_DATABASE_ID=(default)
 6. Wait for the database to be created (takes a minute or two)
 
 #### Step 6: Firestore Service Account
+
 1. Go to **IAM & Admin** → **Service Accounts**
 2. Click **Create Service Account**
 3. Name it (e.g., "firestore-access")
@@ -104,11 +110,13 @@ FIRESTORE_DATABASE_ID=(default)
 6. Click on the service account → **Keys** tab → **Add Key** → **Create new key** → **JSON**
 7. Download the JSON file
 8. Extract from JSON:
+
    - `project_id` → `FIRESTORE_PROJECT_ID`
    - `client_email` → `FIRESTORE_CLIENT_EMAIL`
    - `private_key` → `FIRESTORE_PRIVATE_KEY`
-   
-   **Important for private_key**: 
+
+   **Important for private_key**:
+
    - Copy the entire `private_key` value from JSON (including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----`)
    - In `.env.local`, you can either:
      - Keep it as a multi-line string wrapped in quotes (recommended)
@@ -117,9 +125,33 @@ FIRESTORE_DATABASE_ID=(default)
 
 **Note**: If you're using the default Firestore database, you can omit `FIRESTORE_DATABASE_ID` or set it to `(default)`. For named databases, use the database ID.
 
+#### Step 7: Enable Cloud Tasks API (Optional - for label jobs)
+
+If you plan to use the automated label application feature with Google Cloud Tasks:
+
+1. Go to **APIs & Services** → **Library**
+2. Search for "Cloud Tasks API"
+3. Click **Enable**
+
+4. Set additional environment variables:
+
+```
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+CLOUD_TASKS_LOCATION=us-central1
+CLOUD_TASKS_QUEUE_NAME=label-jobs-queue
+```
+
+5. Run the setup script:
+
+```bash
+npm run setup:cloud-tasks
+```
+
+This creates a Cloud Tasks queue for asynchronous processing of label application jobs.
+
 ### Firestore
 
-- Creates/uses collection `gmailContacts`, document id = Gmail account email.  
+- Creates/uses collection `gmailContacts`, document id = Gmail account email.
 - Stored fields: `senders[]`, `recipients[]`, `merged[]`, `messageSampleCount`,
   `updatedAt`.
 
@@ -132,6 +164,7 @@ See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for detailed Vercel deployment instruct
 See **[DEPLOY_CLOUD_RUN.md](./DEPLOY_CLOUD_RUN.md)** for complete Cloud Run deployment guide.
 
 **Quick steps:**
+
 1. Install gcloud CLI and authenticate
 2. Run `./deploy-gcp.sh` or use manual deployment commands
 3. Set environment variables
@@ -139,6 +172,7 @@ See **[DEPLOY_CLOUD_RUN.md](./DEPLOY_CLOUD_RUN.md)** for complete Cloud Run depl
 5. Test your deployment!
 
 The Cloud Run guide includes:
+
 - ✅ Step-by-step deployment instructions
 - ✅ Environment variable setup
 - ✅ Secrets Manager integration
