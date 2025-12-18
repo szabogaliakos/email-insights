@@ -496,7 +496,7 @@ export async function processLabelJob(job: LabelJob): Promise<void> {
         userId: "me",
         q: searchQuery,
         pageToken: currentPageToken,
-        maxResults: 500,
+        maxResults: 50,
       });
 
       const messageIds = listResponse.data.messages?.map((m) => m.id).filter(Boolean) || [];

@@ -6,6 +6,9 @@ import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from 
 import { Chip } from "@heroui/chip";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/drawer";
 import { Tooltip } from "@heroui/tooltip";
+import { Input } from "@heroui/input";
+import { Checkbox } from "@heroui/checkbox";
+import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
 import { useRouter } from "next/navigation";
 import StepProgress from "@/components/StepProgress";
 
@@ -41,12 +44,25 @@ export default function LabelRulesPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [criteriaModalOpen, setCriteriaModalOpen] = useState(false);
   const [selectedFilterForModal, setSelectedFilterForModal] = useState<GmailApiFilter | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [contacts, setContacts] = useState<string[]>([]);
+
+  // Form state for creating new label rule
+  const [formData, setFormData] = useState({
+    from: "",
+    to: "",
+    subject: "",
+    selectedLabels: [] as string[],
+    archive: false,
+  });
 
   useEffect(() => {
     // Check authentication first
     checkAuth();
     loadLabelRules();
     loadLabels();
+    loadContacts();
   }, []);
 
   const checkAuth = async () => {
@@ -106,6 +122,27 @@ export default function LabelRulesPage() {
     }
   };
 
+  const loadContacts = async () => {
+    try {
+      const res = await fetch("/api/contacts");
+      if (res.ok) {
+        const data = await res.json();
+        // Combine senders and recipients, remove duplicates, limit to 200 most recent for performance
+        const allEmails = [...new Set([...(data.senders || []), ...(data.recipients || [])])];
+        // Sort by frequency (simple heuristic: emails that appear more often are more recent/frequent)
+        const emailFrequency = new Map<string, number>();
+        allEmails.forEach((email) => {
+          emailFrequency.set(email, (emailFrequency.get(email) || 0) + 1);
+        });
+        const sortedEmails = allEmails.sort((a, b) => (emailFrequency.get(b) || 0) - (emailFrequency.get(a) || 0));
+        setContacts(sortedEmails.slice(0, 200)); // Limit to top 200 most frequent contacts
+      }
+    } catch (err) {
+      // Silently fail, contacts are not critical for basic functionality
+      setContacts([]);
+    }
+  };
+
   const handleCreateLabelJob = async (filter: GmailApiFilter) => {
     if (!filter.action.addLabelIds || filter.action.addLabelIds.length === 0) {
       return;
@@ -134,6 +171,71 @@ export default function LabelRulesPage() {
     } catch (err) {
       console.error("Error creating label job:", err);
       alert("Failed to create label job. Please try again.");
+    }
+  };
+
+  const handleCreateLabelRule = async () => {
+    if (formData.selectedLabels.length === 0) {
+      alert("Please select at least one label");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // Build criteria object
+      const criteria: any = {};
+      if (formData.from.trim()) criteria.from = formData.from.trim();
+      if (formData.to.trim()) criteria.to = formData.to.trim();
+      if (formData.subject.trim()) criteria.subject = formData.subject.trim();
+
+      // Build action object
+      const action: any = {
+        addLabelIds: formData.selectedLabels,
+      };
+
+      if (formData.archive) {
+        action.removeLabelIds = ["INBOX"];
+      }
+
+      const filterData = {
+        filter: {
+          criteria,
+          action,
+        },
+      };
+
+      const response = await fetch("/api/gmail/filters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(filterData),
+      });
+
+      if (response.ok) {
+        // Reset form and close drawer
+        setFormData({
+          from: "",
+          to: "",
+          subject: "",
+          selectedLabels: [],
+          archive: false,
+        });
+        setCreateDrawerOpen(false);
+
+        // Refresh the list
+        loadLabelRules();
+
+        alert("Label rule created successfully!");
+      } else {
+        const error = await response.json();
+        alert(`Failed to create label rule: ${error.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error("Error creating label rule:", err);
+      alert("Failed to create label rule. Please try again.");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -280,6 +382,13 @@ export default function LabelRulesPage() {
           }}
         >
           ⟳ Refresh from Gmail
+        </Button>
+        <Button
+          variant="flat"
+          className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-400/30 transition-all duration-300"
+          onPress={() => setCreateDrawerOpen(true)}
+        >
+          ➕ Create Label Rule
         </Button>
       </div>
 
@@ -518,6 +627,164 @@ export default function LabelRulesPage() {
               className="text-gray-300 hover:text-white hover:bg-gray-600"
             >
               Close
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Create Label Rule Drawer */}
+      <Drawer isOpen={createDrawerOpen} onOpenChange={setCreateDrawerOpen} placement="right">
+        <DrawerContent className="bg-gray-800 border-l border-gray-600">
+          <DrawerHeader className="text-white bg-gray-800">➕ Create Label Rule</DrawerHeader>
+          <DrawerBody className="bg-gray-800">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">📋 Filter Criteria</h3>
+                <div className="space-y-4">
+                  <Autocomplete
+                    label="From"
+                    placeholder="sender@example.com"
+                    allowsCustomValue={true}
+                    inputValue={formData.from}
+                    onInputChange={(value) => setFormData({ ...formData, from: value })}
+                    onSelectionChange={(key) => setFormData({ ...formData, from: key as string })}
+                    className="text-white"
+                    labelPlacement="outside"
+                  >
+                    {contacts.slice(0, 50).map((email) => (
+                      <AutocompleteItem key={email} textValue={email}>
+                        {email}
+                      </AutocompleteItem>
+                    ))}
+                  </Autocomplete>
+                  <Autocomplete
+                    label="To"
+                    placeholder="recipient@example.com"
+                    allowsCustomValue={true}
+                    inputValue={formData.to}
+                    onInputChange={(value) => setFormData({ ...formData, to: value })}
+                    onSelectionChange={(key) => setFormData({ ...formData, to: key as string })}
+                    className="text-white"
+                    labelPlacement="outside"
+                  >
+                    {contacts.slice(0, 50).map((email) => (
+                      <AutocompleteItem key={email} textValue={email}>
+                        {email}
+                      </AutocompleteItem>
+                    ))}
+                  </Autocomplete>
+                  <Input
+                    label="Subject"
+                    placeholder="Email subject contains..."
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    className="text-white"
+                    labelPlacement="outside"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">🏷️ Labels to Apply</h3>
+                <div className="space-y-3">
+                  <Autocomplete
+                    label="Add Label"
+                    placeholder="Type label name or select existing"
+                    allowsCustomValue={true}
+                    className="text-white"
+                    labelPlacement="outside"
+                    onSelectionChange={(key) => {
+                      if (key && !formData.selectedLabels.includes(key as string)) {
+                        setFormData({
+                          ...formData,
+                          selectedLabels: [...formData.selectedLabels, key as string],
+                        });
+                      }
+                    }}
+                  >
+                    {labels.map((label) => (
+                      <AutocompleteItem key={label.id} textValue={label.name}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: label.color?.backgroundColor || "#666" }}
+                          />
+                          {label.name}
+                        </div>
+                      </AutocompleteItem>
+                    ))}
+                  </Autocomplete>
+
+                  {formData.selectedLabels.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.selectedLabels.map((labelId, index) => {
+                        const existingLabel = labels.find((l) => l.id === labelId);
+                        const isCustom = !existingLabel;
+                        const displayName = existingLabel ? existingLabel.name : labelId;
+
+                        return (
+                          <Chip
+                            key={index}
+                            size="sm"
+                            variant="flat"
+                            onClose={() => {
+                              setFormData({
+                                ...formData,
+                                selectedLabels: formData.selectedLabels.filter((_, i) => i !== index),
+                              });
+                            }}
+                            className="cursor-pointer"
+                            style={{
+                              backgroundColor: existingLabel?.color?.backgroundColor || (isCustom ? "#4a5568" : "#666"),
+                              color: existingLabel?.color?.textColor || "#fff",
+                            }}
+                          >
+                            {isCustom && "✨"} {displayName}
+                          </Chip>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400">
+                    💡 Type a custom label name or select from existing labels. Custom labels will be created
+                    automatically.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">📁 Archive Behavior</h3>
+                <Checkbox
+                  isSelected={formData.archive}
+                  onValueChange={(checked) => setFormData({ ...formData, archive: checked })}
+                  className="text-white"
+                >
+                  Archive matching emails (remove from inbox)
+                </Checkbox>
+              </div>
+
+              <div className="text-sm text-gray-400 bg-gray-900 p-4 rounded">
+                <strong>Note:</strong> This will create a filter in your Gmail account that automatically applies labels
+                to future emails matching these criteria.
+              </div>
+            </div>
+          </DrawerBody>
+          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
+            <Button
+              variant="ghost"
+              onPress={() => setCreateDrawerOpen(false)}
+              className="text-gray-300 hover:text-white hover:bg-gray-600"
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onPress={handleCreateLabelRule}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={creating || formData.selectedLabels.length === 0}
+            >
+              {creating ? "Creating..." : "Create Rule"}
             </Button>
           </DrawerFooter>
         </DrawerContent>
