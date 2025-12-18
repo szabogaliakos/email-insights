@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.0.0",
-    "@google-cloud/tasks": "^6.2.1",
     "@heroui/alert": "^2.2.27",
     "@heroui/checkbox": "^2.3.27",
     "@heroui/input": "^2.4.28",

@@ -382,31 +382,18 @@ export async function startLabelJob(jobId: string): Promise<boolean> {
     resumeCount: (job.resumeCount || 0) + 1,
   });
 
-  // Try to create Cloud Tasks task for async processing
+  // Process the job synchronously in the web app
+  console.log(`🔄 Processing label job ${jobId} synchronously...`);
   try {
-    const { createLabelJobTask } = await import("@/lib/cloud-tasks");
-    await createLabelJobTask(jobId, job.email, undefined, {
-      batchSize: 50, // Default batch size
-      pageToken: job.nextPageToken,
-      retryCount: 0,
+    await processLabelJob(job);
+    console.log(`✅ Completed synchronous processing for job ${jobId}`);
+  } catch (error) {
+    console.error(`❌ Synchronous processing failed for job ${jobId}:`, error);
+    await updateLabelJobInDB(jobId, {
+      status: "failed",
+      error: error instanceof Error ? error.message : "Unknown error during sync processing",
     });
-    console.log(`✅ Created Cloud Tasks for label job ${jobId} (async processing)`);
-  } catch (error: any) {
-    console.warn(`⚠️ Cloud Tasks not available for job ${jobId}, falling back to sync processing:`, error.message);
-
-    // Cloud Tasks not available - process synchronously
-    console.log(`🔄 Processing label job ${jobId} synchronously...`);
-    try {
-      await processLabelJob(job);
-      console.log(`✅ Completed synchronous processing for job ${jobId}`);
-    } catch (syncError) {
-      console.error(`❌ Synchronous processing failed for job ${jobId}:`, syncError);
-      await updateLabelJobInDB(jobId, {
-        status: "failed",
-        error: syncError instanceof Error ? syncError.message : "Unknown error during sync processing",
-      });
-      return false;
-    }
+    return false;
   }
 
   return true;
@@ -489,88 +476,130 @@ export async function processLabelJob(job: LabelJob): Promise<void> {
 
     const searchQuery = queryParts.join(" ");
 
-    console.log(
-      `Processing label job ${job.id}: query="${searchQuery}", pageToken=${job.nextPageToken}, processed so far=${job.messagesProcessed}`
-    );
+    console.log(`Processing label job ${job.id}: query="${searchQuery}", starting with pageToken=${job.nextPageToken}`);
 
-    // Search for messages matching the criteria
-    const listResponse = await gmail.users.messages.list({
-      userId: "me",
-      q: searchQuery,
-      pageToken: job.nextPageToken,
-      maxResults: MESSAGES_PER_BATCH,
-    });
+    let totalMessagesProcessed = job.messagesProcessed;
+    let totalLabelsApplied = job.labelsApplied;
+    let currentPageToken = job.nextPageToken;
 
-    const messageIds = listResponse.data.messages?.map((m) => m.id).filter(Boolean) || [];
-
-    if (messageIds.length === 0) {
-      // No more messages
-      console.log(`No more messages for label job ${job.id}, marking as completed`);
-      await updateLabelJobInDB(job.id, { status: "completed" });
-      return;
-    }
-
-    // Process messages in batches and apply labels
-    let labelsAppliedInBatch = 0;
-    let messagesMatchedInBatch = 0;
-
-    // Process messages in smaller chunks to avoid rate limits
-    for (let i = 0; i < messageIds.length; i += 10) {
-      const batch = messageIds.slice(i, i + 10);
-
-      // Check if job was paused/cancelled during processing
+    // Process all pages of messages
+    while (true) {
+      // Check if job was paused/cancelled before processing next page
       const currentJob = await loadLabelJob(job.id);
       if (!currentJob || currentJob.status !== "running") {
         console.log(`Label job ${job.id} was ${currentJob?.status}, stopping processing`);
         return;
       }
 
-      // Apply labels to this batch
-      const modifyPromises = batch.map(async (messageId) => {
-        try {
-          await gmail.users.messages.modify({
-            userId: "me",
-            id: messageId as string,
-            requestBody: {
-              addLabelIds: job.labelIds,
-            },
-          });
-          return true;
-        } catch (error) {
-          console.warn(`Failed to apply labels to message ${messageId}:`, error);
-          return false;
-        }
+      // Search for messages matching the criteria
+      const listResponse = await gmail.users.messages.list({
+        userId: "me",
+        q: searchQuery,
+        pageToken: currentPageToken,
+        maxResults: 500,
       });
 
-      const results = await Promise.all(modifyPromises);
-      const successful = results.filter(Boolean).length;
+      const messageIds = listResponse.data.messages?.map((m) => m.id).filter(Boolean) || [];
+      const nextPageToken = listResponse.data.nextPageToken;
 
-      labelsAppliedInBatch += successful;
-      messagesMatchedInBatch += batch.length;
-
-      // Small delay between batches
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    // Update job progress
-    const updatedJob = await updateLabelJobInDB(job.id, {
-      messagesProcessed: job.messagesProcessed + messageIds.length,
-      messagesMatched: job.messagesMatched + messagesMatchedInBatch,
-      labelsApplied: job.labelsApplied + labelsAppliedInBatch,
-      lastMessageId: messageIds.length > 0 ? messageIds[messageIds.length - 1]! : undefined,
-      nextPageToken: listResponse.data.nextPageToken ?? undefined,
-    });
-
-    console.log(
-      `Label job ${job.id} processed ${messageIds.length} messages, applied ${labelsAppliedInBatch} labels, nextPageToken=${updatedJob?.nextPageToken}, total processed=${updatedJob?.messagesProcessed}`
-    );
-
-    // If we got fewer messages than requested, we're done
-    if (messageIds.length < MESSAGES_PER_BATCH || !updatedJob?.nextPageToken) {
       console.log(
-        `Label job ${job.id} completed: got ${messageIds.length} messages (${MESSAGES_PER_BATCH} requested), no nextPageToken`
+        `Fetched page with ${messageIds.length} messages, nextPageToken=${nextPageToken}, total processed so far=${totalMessagesProcessed}`
       );
-      await updateLabelJobInDB(job.id, { status: "completed" });
+
+      if (messageIds.length === 0) {
+        // No more messages in this page
+        if (!nextPageToken) {
+          // No more pages at all
+          console.log(
+            `No more messages for label job ${job.id}, marking as completed. Total processed: ${totalMessagesProcessed}`
+          );
+          await updateLabelJobInDB(job.id, { status: "completed" });
+          return;
+        } else {
+          // Move to next page
+          currentPageToken = nextPageToken;
+          continue;
+        }
+      }
+
+      // Process messages in smaller chunks to avoid rate limits
+      let labelsAppliedInPage = 0;
+      let messagesMatchedInPage = 0;
+
+      for (let i = 0; i < messageIds.length; i += 10) {
+        const batch = messageIds.slice(i, i + 10);
+
+        // Check if job was paused/cancelled during processing
+        const checkJob = await loadLabelJob(job.id);
+        if (!checkJob || checkJob.status !== "running") {
+          console.log(`Label job ${job.id} was ${checkJob?.status} during processing, stopping`);
+          return;
+        }
+
+        // Apply labels to this batch
+        const modifyPromises = batch.map(async (messageId) => {
+          try {
+            await gmail.users.messages.modify({
+              userId: "me",
+              id: messageId as string,
+              requestBody: {
+                addLabelIds: job.labelIds,
+              },
+            });
+            return true;
+          } catch (error) {
+            console.warn(`Failed to apply labels to message ${messageId}:`, error);
+            return false;
+          }
+        });
+
+        const results = await Promise.all(modifyPromises);
+        const successful = results.filter(Boolean).length;
+
+        labelsAppliedInPage += successful;
+        messagesMatchedInPage += batch.length;
+
+        // Small delay between batches to avoid rate limits
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      // Update running totals
+      totalMessagesProcessed += messageIds.length;
+      totalLabelsApplied += labelsAppliedInPage;
+
+      // Update job progress in database
+      const updatedJob = await updateLabelJobInDB(job.id, {
+        messagesProcessed: totalMessagesProcessed,
+        messagesMatched: job.messagesMatched + messagesMatchedInPage,
+        labelsApplied: totalLabelsApplied,
+        lastMessageId: messageIds.length > 0 ? messageIds[messageIds.length - 1]! : undefined,
+        nextPageToken: nextPageToken ?? undefined,
+      });
+
+      console.log(
+        `Label job ${job.id} processed page: ${messageIds.length} messages, applied ${labelsAppliedInPage} labels. Running total: ${totalMessagesProcessed} messages, ${totalLabelsApplied} labels applied`
+      );
+
+      // If we got fewer messages than requested and no next page token, we're done
+      if (messageIds.length < MESSAGES_PER_BATCH && !nextPageToken) {
+        console.log(
+          `Label job ${job.id} completed: got ${messageIds.length} messages (${MESSAGES_PER_BATCH} requested), no nextPageToken. Final total: ${totalMessagesProcessed} messages processed`
+        );
+        await updateLabelJobInDB(job.id, { status: "completed" });
+        return;
+      }
+
+      // Move to next page or stop if no more pages
+      if (nextPageToken) {
+        currentPageToken = nextPageToken;
+      } else {
+        // No more pages, but we got a full batch, so this should be the last page
+        console.log(
+          `Label job ${job.id} completed: processed all available messages. Final total: ${totalMessagesProcessed} messages processed`
+        );
+        await updateLabelJobInDB(job.id, { status: "completed" });
+        return;
+      }
     }
   } catch (error) {
     console.error("Label job processing error:", error);
