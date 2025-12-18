@@ -6,6 +6,16 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Add Google Cloud SDK apt repo
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" \
+    > /etc/apt/sources.list.d/google-cloud-sdk.list
+
+RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+    | gpg --dearmor \
+    | tee /usr/share/keyrings/cloud.google.gpg > /dev/null
+
+# Install gcloud
+RUN apt-get update && apt-get install -y google-cloud-cli
 # Set working directory
 WORKDIR /workspaces
 

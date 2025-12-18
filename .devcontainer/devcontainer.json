@@ -1,5 +1,5 @@
 {
-  "name": "Gmail Merge Development",
+  "name": "Email insights Development",
   "dockerComposeFile": ["docker-compose.yml"],
   "service": "app",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
@@ -12,7 +12,8 @@
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "bradlc.vscode-tailwindcss",
-        "ms-vscode.vscode-json"
+        "ms-vscode.vscode-json",
+        "saoudrizwan.claude-dev"
       ],
       "settings": {
         "typescript.preferences.importModuleSpecifier": "relative",
@@ -38,7 +39,7 @@
     }
   },
 
-  "postCreateCommand": "npm install",
+  "postCreateCommand": ["npm install", "echo 'gcloud is installed. Run: gcloud auth login --no-launch-browser'"],
 
   "remoteUser": "node"
 }
