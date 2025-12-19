@@ -1339,96 +1339,170 @@ export default function LabelRulesPage() {
 
       {/* Delete Label Rule Drawer */}
       <Drawer isOpen={deleteDrawerOpen} onOpenChange={setDeleteDrawerOpen} placement="right">
-        <DrawerContent className="bg-gray-800 border-l border-gray-600">
-          <DrawerHeader className="text-white bg-gray-800">🗑️ Delete Label Rule</DrawerHeader>
-          <DrawerBody className="bg-gray-800">
-            <div className="space-y-6">
-              <div className="text-sm text-gray-300">
-                <p className="mb-4">Are you sure you want to delete this label rule? This action cannot be undone.</p>
-                {selectedFilterForDelete && (
-                  <div className="bg-gray-900 p-4 rounded space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-emerald-400">📋</span>
-                      <span className="text-white font-medium">Filter Criteria:</span>
-                    </div>
-                    <div className="text-gray-300 text-sm pl-6">{formatCriteria(selectedFilterForDelete.criteria)}</div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="text-emerald-400">🏷️</span>
-                      <span className="text-white font-medium">Labels:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 pl-6">
-                      {selectedFilterForDelete.action.addLabelIds?.map((labelId) => {
-                        const label = labels.find((l) => l.id === labelId);
-                        const isCustom = !label;
-                        return (
-                          <Chip
-                            key={labelId}
-                            size="sm"
-                            variant="flat"
-                            className="text-xs"
-                            style={{
-                              backgroundColor: label?.color?.backgroundColor || (isCustom ? "#4a5568" : "#666"),
-                              color: label?.color?.textColor || "#fff",
-                            }}
-                          >
-                            {isCustom && "✨"} {label?.name || labelId}
-                          </Chip>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+        <DrawerContent className="bg-gradient-to-br from-background to-background/95 border-l border-default-200/50 shadow-2xl">
+          <DrawerHeader className="bg-gradient-to-r from-danger/10 to-warning/10 border-b border-default-200/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-danger to-warning rounded-lg">
+                <span className="text-xl">🗑️</span>
               </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Delete Label Rule</h2>
+                <p className="text-sm text-default-600">Permanently remove automation rules</p>
+              </div>
+            </div>
+          </DrawerHeader>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">🗑️ Deletion Options</h3>
-                <div className="space-y-3">
-                  <Checkbox
-                    isSelected={deleteOptions.deleteFilter}
-                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteFilter: checked }))}
-                    className="text-white"
-                  >
-                    <div>
-                      <div className="font-medium">Delete Gmail Filter</div>
-                      <div className="text-sm text-gray-400">Remove the filter from Gmail</div>
-                    </div>
-                  </Checkbox>
+          <DrawerBody className="bg-background/50 backdrop-blur-sm">
+            <div className="space-y-8">
+              {/* Rule Summary Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-warning/10 rounded-lg">
+                    <span className="text-warning">📋</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Rule Summary</h3>
+                    <p className="text-sm text-default-600">Review what will be deleted</p>
+                  </div>
+                </div>
 
-                  <Checkbox
-                    isSelected={deleteOptions.deleteLabel}
-                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabel: checked }))}
-                    className="text-white"
-                  >
-                    <div>
-                      <div className="font-medium">Delete Labels</div>
-                      <div className="text-sm text-gray-400">Remove all labels associated with this rule</div>
-                    </div>
-                  </Checkbox>
+                <div className="bg-content1/30 backdrop-blur-sm border border-default-200/50 rounded-xl p-6">
+                  <div className="text-sm text-default-700 mb-4">
+                    Are you sure you want to delete this label rule? This action cannot be undone.
+                  </div>
 
-                  <Checkbox
-                    isSelected={deleteOptions.deleteLabelJob}
-                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabelJob: checked }))}
-                    className="text-white"
-                  >
-                    <div>
-                      <div className="font-medium">Delete Label Job</div>
-                      <div className="text-sm text-gray-400">Remove any associated label processing job</div>
+                  {selectedFilterForDelete && (
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-primary">🔍</span>
+                          <span className="text-foreground font-medium">Filter Criteria:</span>
+                        </div>
+                        <div className="bg-default/5 border border-default-200/30 rounded-lg p-3">
+                          <p className="text-sm text-default-700">{formatCriteria(selectedFilterForDelete.criteria)}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-secondary">🏷️</span>
+                          <span className="text-foreground font-medium">Labels Applied:</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedFilterForDelete.action.addLabelIds?.map((labelId) => {
+                            const label = labels.find((l) => l.id === labelId);
+                            const isCustom = !label;
+                            return (
+                              <Chip
+                                key={labelId}
+                                size="sm"
+                                variant="flat"
+                                className="bg-gradient-to-r border-0"
+                                style={{
+                                  background: label?.color?.backgroundColor
+                                    ? `linear-gradient(135deg, ${label.color.backgroundColor}, ${label.color.backgroundColor}dd)`
+                                    : isCustom
+                                    ? "linear-gradient(135deg, #4a5568, #2d3748)"
+                                    : "linear-gradient(135deg, #666, #555)",
+                                  color: label?.color?.textColor || "#fff",
+                                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                }}
+                              >
+                                {isCustom && <span className="mr-1">✨</span>}
+                                {label?.name || labelId}
+                              </Chip>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </Checkbox>
+                  )}
                 </div>
               </div>
 
-              <div className="text-sm text-red-400 bg-red-900/20 p-4 rounded border border-red-400/30">
-                <strong>⚠️ Warning:</strong> Deleting labels will permanently remove them from your Gmail account and
-                unlabel all emails that had these labels.
+              {/* Deletion Options Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-danger/10 rounded-lg">
+                    <span className="text-danger">⚙️</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Deletion Options</h3>
+                    <p className="text-sm text-default-600">Choose what to remove</p>
+                  </div>
+                </div>
+
+                <div className="bg-content1/30 backdrop-blur-sm border border-default-200/50 rounded-xl p-6 space-y-4">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                      <Checkbox
+                        isSelected={deleteOptions.deleteFilter}
+                        onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteFilter: checked }))}
+                        className="text-foreground mt-0.5"
+                        size="lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground">Delete Gmail Filter</h4>
+                        <p className="text-sm text-default-600">Remove the automation rule from Gmail</p>
+                      </div>
+                      <div className="text-primary text-lg">🔧</div>
+                    </div>
+
+                    <div className="flex items-start gap-4 p-4 bg-secondary/5 border border-secondary/20 rounded-lg">
+                      <Checkbox
+                        isSelected={deleteOptions.deleteLabel}
+                        onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabel: checked }))}
+                        className="text-foreground mt-0.5"
+                        size="lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground">Delete Associated Labels</h4>
+                        <p className="text-sm text-default-600">Remove all labels created by this rule</p>
+                      </div>
+                      <div className="text-secondary text-lg">🏷️</div>
+                    </div>
+
+                    <div className="flex items-start gap-4 p-4 bg-warning/5 border border-warning/20 rounded-lg">
+                      <Checkbox
+                        isSelected={deleteOptions.deleteLabelJob}
+                        onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabelJob: checked }))}
+                        className="text-foreground mt-0.5"
+                        size="lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground">Delete Processing Jobs</h4>
+                        <p className="text-sm text-default-600">Remove any background processing tasks</p>
+                      </div>
+                      <div className="text-warning text-lg">⚡</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning Section */}
+              <div className="bg-gradient-to-r from-danger/5 to-warning/5 border border-danger/20 rounded-xl p-6">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gradient-to-r from-danger to-warning rounded-lg">
+                    <span className="text-white text-lg">⚠️</span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-foreground mb-2">Permanent Action Warning</h4>
+                    <p className="text-sm text-default-700">
+                      Deleting labels will permanently remove them from your Gmail account and unlabel all emails that
+                      had these labels. This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </DrawerBody>
-          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
+
+          <DrawerFooter className="bg-gradient-to-r from-background to-background/95 border-t border-default-200/30">
             <Button
               variant="ghost"
               onPress={() => setDeleteDrawerOpen(false)}
-              className="text-gray-300 hover:text-white hover:bg-gray-600"
+              className="text-default-600 hover:text-foreground hover:bg-default/10"
+              disabled={deleting}
             >
               Cancel
             </Button>
@@ -1437,9 +1511,20 @@ export default function LabelRulesPage() {
               color="danger"
               onPress={() => handleDeleteLabelRule()}
               disabled={deleting}
-              className="text-white"
+              className="bg-gradient-to-r from-danger to-danger-600 hover:from-danger/80 hover:to-danger-500 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+              size="lg"
             >
-              {deleting ? "Deleting..." : "Delete Rule"}
+              {deleting ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  Deleting Rule...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span>🗑️</span>
+                  Delete Rule Permanently
+                </div>
+              )}
             </Button>
           </DrawerFooter>
         </DrawerContent>
