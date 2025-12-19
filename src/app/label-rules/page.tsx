@@ -53,11 +53,14 @@ export default function LabelRulesPage() {
   const [fromSuggestions, setFromSuggestions] = useState<string[]>([]);
   const [fromLoading, setFromLoading] = useState(false);
   const [fromSearchTimer, setFromSearchTimer] = useState<NodeJS.Timeout | null>(null);
+  const [toSuggestions, setToSuggestions] = useState<string[]>([]);
+  const [toLoading, setToLoading] = useState(false);
+  const [toSearchTimer, setToSearchTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Form state for creating new label rule
   const [formData, setFormData] = useState({
-    from: "",
-    to: "",
+    fromEmails: [] as string[],
+    toEmails: [] as string[],
     subject: "",
     selectedLabels: [] as string[],
     archive: false,
@@ -65,6 +68,7 @@ export default function LabelRulesPage() {
 
   // Ensure suggestions are always valid
   const safeFromSuggestions = fromSuggestions && Array.isArray(fromSuggestions) ? fromSuggestions : [];
+  const safeToSuggestions = toSuggestions && Array.isArray(toSuggestions) ? toSuggestions : [];
 
   useEffect(() => {
     // Check authentication first
@@ -152,14 +156,23 @@ export default function LabelRulesPage() {
     }
   };
 
-  // Debounced search for "from" autocomplete
-  const searchContacts = async (query: string) => {
+  // Debounced search for autocomplete
+  const searchContacts = async (query: string, isFrom: boolean = true) => {
     if (query.length < 3) {
-      setFromSuggestions([]);
+      if (isFrom) {
+        setFromSuggestions([]);
+      } else {
+        setToSuggestions([]);
+      }
       return;
     }
 
-    setFromLoading(true);
+    if (isFrom) {
+      setFromLoading(true);
+    } else {
+      setToLoading(true);
+    }
+
     try {
       // Search contacts API with limit 10
       const res = await fetch(`/api/contacts?search=${encodeURIComponent(query)}&limit=10`);
@@ -167,20 +180,39 @@ export default function LabelRulesPage() {
         const data = await res.json();
         const contacts = data.contacts || [];
         const emails = Array.isArray(contacts) ? contacts.map((c: any) => c?.email).filter(Boolean) : [];
-        setFromSuggestions(emails);
+
+        if (isFrom) {
+          setFromSuggestions(emails);
+        } else {
+          setToSuggestions(emails);
+        }
       } else {
-        setFromSuggestions([]);
+        if (isFrom) {
+          setFromSuggestions([]);
+        } else {
+          setToSuggestions([]);
+        }
       }
     } catch (err) {
       console.error("Error searching contacts:", err);
-      setFromSuggestions([]);
+      if (isFrom) {
+        setFromSuggestions([]);
+      } else {
+        setToSuggestions([]);
+      }
     } finally {
-      setFromLoading(false);
+      if (isFrom) {
+        setFromLoading(false);
+      } else {
+        setToLoading(false);
+      }
     }
   };
 
-  const handleFromInputChange = (value: string) => {
-    setFormData({ ...formData, from: value });
+  const handleEmailInputChange = (index: number, value: string) => {
+    const newEmails = [...formData.fromEmails];
+    newEmails[index] = value;
+    setFormData({ ...formData, fromEmails: newEmails });
 
     // Clear suggestions immediately when input is too short
     if (value.length < 3) {
@@ -204,6 +236,57 @@ export default function LabelRulesPage() {
     }, 300);
 
     setFromSearchTimer(timer);
+  };
+
+  const addEmailInput = () => {
+    setFormData({ ...formData, fromEmails: [...formData.fromEmails, ""] });
+  };
+
+  const removeEmailInput = (index: number) => {
+    if (formData.fromEmails.length > 1) {
+      const newEmails = formData.fromEmails.filter((_, i) => i !== index);
+      setFormData({ ...formData, fromEmails: newEmails });
+    }
+  };
+
+  const handleToEmailInputChange = (index: number, value: string) => {
+    const newEmails = [...formData.toEmails];
+    newEmails[index] = value;
+    setFormData({ ...formData, toEmails: newEmails });
+
+    // Clear suggestions immediately when input is too short
+    if (value.length < 3) {
+      setToSuggestions([]);
+      if (toSearchTimer) {
+        clearTimeout(toSearchTimer);
+      }
+      return;
+    }
+
+    // Clear existing timer
+    if (toSearchTimer) {
+      clearTimeout(toSearchTimer);
+    }
+
+    // Set new timer for debounced search (300ms)
+    const timer = setTimeout(() => {
+      if (value.length >= 3) {
+        searchContacts(value, false); // false = isFrom
+      }
+    }, 300);
+
+    setToSearchTimer(timer);
+  };
+
+  const addToEmailInput = () => {
+    setFormData({ ...formData, toEmails: [...formData.toEmails, ""] });
+  };
+
+  const removeToEmailInput = (index: number) => {
+    if (formData.toEmails.length > 1) {
+      const newEmails = formData.toEmails.filter((_, i) => i !== index);
+      setFormData({ ...formData, toEmails: newEmails });
+    }
   };
 
   // Cleanup timer on unmount
@@ -252,12 +335,26 @@ export default function LabelRulesPage() {
       return;
     }
 
+    // Check if at least one email is provided
+    const validEmails = formData.fromEmails.filter((email) => email.trim());
+    if (validEmails.length === 0) {
+      alert("Please enter at least one email address");
+      return;
+    }
+
     setCreating(true);
     try {
       // Build criteria object
       const criteria: any = {};
-      if (formData.from.trim()) criteria.from = formData.from.trim();
-      if (formData.to.trim()) criteria.to = formData.to.trim();
+      // Combine from emails with OR
+      if (validEmails.length > 0) {
+        criteria.from = validEmails.join(" OR ");
+      }
+      // Combine to emails with OR
+      const validToEmails = formData.toEmails.filter((email) => email.trim());
+      if (validToEmails.length > 0) {
+        criteria.to = validToEmails.join(" OR ");
+      }
       if (formData.subject.trim()) criteria.subject = formData.subject.trim();
 
       // Build action object
@@ -287,8 +384,8 @@ export default function LabelRulesPage() {
       if (response.ok) {
         // Reset form and close drawer
         setFormData({
-          from: "",
-          to: "",
+          fromEmails: [""],
+          toEmails: [""],
           subject: "",
           selectedLabels: [],
           archive: false,
@@ -749,39 +846,104 @@ export default function LabelRulesPage() {
               <div>
                 <h3 className="text-lg font-semibold text-white mb-4">📋 Filter Criteria</h3>
                 <div className="space-y-4">
-                  <Autocomplete
-                    label="From"
-                    placeholder="Type at least 3 characters to search contacts..."
-                    allowsCustomValue={true}
-                    inputValue={formData.from || ""}
-                    onInputChange={handleFromInputChange}
-                    onSelectionChange={(key) => setFormData({ ...formData, from: key ? String(key) : "" })}
-                    className="text-white"
-                    labelPlacement="outside"
-                    isLoading={fromLoading}
-                  >
-                    {safeFromSuggestions.map((email) => (
-                      <AutocompleteItem key={email} textValue={email}>
-                        {email}
-                      </AutocompleteItem>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-white">From Email Addresses</h4>
+                      <Button size="sm" variant="flat" color="primary" onPress={addEmailInput}>
+                        ➕ Add Email
+                      </Button>
+                    </div>
+                    {formData.fromEmails.map((email, index) => (
+                      <div key={index} className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <Autocomplete
+                            label={`Email ${index + 1}`}
+                            placeholder="Type at least 3 characters to search contacts..."
+                            allowsCustomValue={true}
+                            inputValue={email}
+                            onInputChange={(value) => handleEmailInputChange(index, value)}
+                            onSelectionChange={(key) => {
+                              const newEmails = [...formData.fromEmails];
+                              newEmails[index] = key ? String(key) : "";
+                              setFormData({ ...formData, fromEmails: newEmails });
+                            }}
+                            className="text-white"
+                            labelPlacement="outside"
+                            isLoading={fromLoading}
+                          >
+                            {safeFromSuggestions.map((emailSuggestion) => (
+                              <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
+                                {emailSuggestion}
+                              </AutocompleteItem>
+                            ))}
+                          </Autocomplete>
+                        </div>
+                        {formData.fromEmails.length > 1 && (
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            color="danger"
+                            className="mb-1"
+                            onPress={() => removeEmailInput(index)}
+                          >
+                            ❌
+                          </Button>
+                        )}
+                      </div>
                     ))}
-                  </Autocomplete>
-                  <Autocomplete
-                    label="To"
-                    placeholder="recipient@example.com"
-                    allowsCustomValue={true}
-                    inputValue={formData.to}
-                    onInputChange={(value) => setFormData({ ...formData, to: value })}
-                    onSelectionChange={(key) => setFormData({ ...formData, to: key as string })}
-                    className="text-white"
-                    labelPlacement="outside"
-                  >
-                    {contacts.slice(0, 50).map((email) => (
-                      <AutocompleteItem key={email} textValue={email}>
-                        {email}
-                      </AutocompleteItem>
+                    <p className="text-xs text-gray-400">
+                      💡 Multiple emails will be combined with OR in the Gmail filter. Add as many emails as needed.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-white">To Email Addresses</h4>
+                      <Button size="sm" variant="flat" color="primary" onPress={addToEmailInput}>
+                        ➕ Add Email
+                      </Button>
+                    </div>
+                    {formData.toEmails.map((email, index) => (
+                      <div key={index} className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <Autocomplete
+                            label={`Email ${index + 1}`}
+                            placeholder="Type at least 3 characters to search contacts..."
+                            allowsCustomValue={true}
+                            inputValue={email}
+                            onInputChange={(value) => handleToEmailInputChange(index, value)}
+                            onSelectionChange={(key) => {
+                              const newEmails = [...formData.toEmails];
+                              newEmails[index] = key ? String(key) : "";
+                              setFormData({ ...formData, toEmails: newEmails });
+                            }}
+                            className="text-white"
+                            labelPlacement="outside"
+                            isLoading={toLoading}
+                          >
+                            {safeToSuggestions.map((emailSuggestion) => (
+                              <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
+                                {emailSuggestion}
+                              </AutocompleteItem>
+                            ))}
+                          </Autocomplete>
+                        </div>
+                        {formData.toEmails.length > 1 && (
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            color="danger"
+                            className="mb-1"
+                            onPress={() => removeToEmailInput(index)}
+                          >
+                            ❌
+                          </Button>
+                        )}
+                      </div>
                     ))}
-                  </Autocomplete>
+                    <p className="text-xs text-gray-400">
+                      💡 Multiple emails will be combined with OR in the Gmail filter. Add as many emails as needed.
+                    </p>
+                  </div>
                   <Input
                     label="Subject"
                     placeholder="Email subject contains..."
