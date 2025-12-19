@@ -32,10 +32,10 @@ type GmailApiFilter = {
 };
 
 const columns = [
-  { name: "CRITERIA", uid: "criteria" },
-  { name: "LABELS APPLIED", uid: "labels" },
-  { name: "ARCHIVE", uid: "archive" },
-  { name: "ACTIONS", uid: "actions" },
+  { name: "Criteria", uid: "criteria" },
+  { name: "Labels applied", uid: "labels" },
+  { name: "Archive", uid: "archive" },
+  { name: "Actions", uid: "actions" },
 ];
 
 export default function LabelRulesPage() {
@@ -666,14 +666,14 @@ export default function LabelRulesPage() {
       <StepProgress currentStep={3} />
 
       <div className="mb-12 text-center">
-        <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+        <h1 className="text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Label Rules
         </h1>
-        <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-          View all Gmail filters that automatically apply labels to your emails. These are real-time rules from your
-          Gmail account.
+        <p className="text-xl text-default-600 max-w-3xl mx-auto">
+          Manage your Gmail automation rules with AI-powered analysis. Create intelligent filters that automatically
+          organize and label your emails.
         </p>
-        <div className="w-24 h-1 bg-gradient-to-r from-emerald-400 to-teal-400 mx-auto mt-4 rounded-full"></div>
+        <div className="w-24 h-1 bg-gradient-to-r from-primary to-secondary mx-auto mt-4 rounded-full"></div>
       </div>
 
       <div className="mb-8 flex gap-6 justify-center">
@@ -705,12 +705,15 @@ export default function LabelRulesPage() {
         </div>
       )}
 
-      <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-emerald-900/20">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-2xl font-semibold text-white mb-2">📋 Active Label Rules</h2>
-          <p className="text-sm text-gray-400">
-            {loading ? "Loading from Gmail..." : `${filters.length} label rules found in your Gmail account`}
-          </p>
+      <div className="bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl shadow-2xl">
+        <div className="flex items-start justify-between gap-3 p-6 border-b border-default-200">
+          <div>
+            <p className="text-sm font-medium text-primary">Gmail Automation Rules</p>
+            <h3 className="text-xl font-semibold text-foreground">Active Label Rules</h3>
+            <p className="text-sm text-default-600 mt-1">
+              {loading ? "Loading from Gmail..." : `${filters.length} label rules found in your Gmail account`}
+            </p>
+          </div>
         </div>
 
         <div className="p-6">
@@ -720,9 +723,9 @@ export default function LabelRulesPage() {
               aria-label="Label rules table loading"
               classNames={{
                 wrapper: "min-h-[222px]",
-                th: "bg-black/30 text-white border-b border-white/10",
-                td: "text-gray-200 border-b border-white/5",
-                tbody: "bg-black/10",
+                th: "bg-default/20 text-foreground border-b border-default-200",
+                td: "text-default-600 border-b border-default/20",
+                tbody: "bg-default/5",
               }}
             >
               <TableHeader columns={columns}>
@@ -778,10 +781,9 @@ export default function LabelRulesPage() {
               bottomContentPlacement="outside"
               classNames={{
                 wrapper: "min-h-[222px]",
-                th: "bg-black/30 text-white border-b border-white/10",
-                td: "text-gray-200 border-b border-white/5 hover:bg-white/5 transition-colors",
-                tbody: "bg-black/10",
-                tr: "hover:backdrop-blur-sm",
+                th: "bg-default/20 text-foreground border-b border-default-200",
+                td: "text-default-600 border-b border-default/20 hover:bg-default/10 transition-colors",
+                tbody: "bg-default/5",
               }}
             >
               <TableHeader columns={columns}>
