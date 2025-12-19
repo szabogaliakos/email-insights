@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import AppNavbar from "../components/Navbar";
+import FABMenu from "../components/FABMenu";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
             <AppNavbar />
             <main className="container mx-auto px-4 py-8">{children}</main>
           </div>
+          <FABMenu />
         </Providers>
       </body>
     </html>

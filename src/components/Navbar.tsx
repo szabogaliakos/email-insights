@@ -119,15 +119,7 @@ export default function AppNavbar() {
         </NavbarBrand>
 
         {/* Navigation links - only show when authenticated */}
-        {isConnected && (
-          <NavbarContent className="hidden sm:flex gap-4" justify="center">
-            <NavbarItem>
-              <Link color="foreground" href="/scan">
-                Dashboard
-              </Link>
-            </NavbarItem>
-          </NavbarContent>
-        )}
+        {isConnected && <NavbarContent className="hidden sm:flex gap-4" justify="center"></NavbarContent>}
 
         <NavbarContent justify="end">
           <NavbarItem className="hidden lg:flex">
@@ -160,22 +152,6 @@ export default function AppNavbar() {
           </NavbarItem>
         </NavbarContent>
       </Navbar>
-
-      {/* Floating Action Button */}
-      {isConnected && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <Button
-            as={Link}
-            variant="solid"
-            color="primary"
-            size="lg"
-            href="/settings"
-            className="shadow-2xl hover:shadow-primary/20 transition-all duration-200"
-          >
-            ⚙️ Settings
-          </Button>
-        </div>
-      )}
     </>
   );
 }
