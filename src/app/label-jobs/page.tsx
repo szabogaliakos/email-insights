@@ -376,6 +376,11 @@ export default function LabelJobsPage() {
           <p className="text-sm text-default-600 mt-1">
             {loading ? "Loading jobs..." : `Last updated: ${new Date().toLocaleTimeString()}`}
           </p>
+          <div className="mt-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+            <p className="text-sm text-warning">
+              💡 <strong>Note:</strong> Press "Refresh Jobs" to see the latest status of your automation jobs.
+            </p>
+          </div>
         </div>
         <div className="p-6">
           {loading ? (
