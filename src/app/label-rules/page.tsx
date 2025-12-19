@@ -9,6 +9,7 @@ import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
 import { Checkbox } from "@heroui/checkbox";
 import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
+import { Skeleton } from "@heroui/skeleton";
 import { useRouter } from "next/navigation";
 import StepProgress from "@/components/StepProgress";
 
@@ -411,9 +412,45 @@ export default function LabelRulesPage() {
 
         <div className="p-6">
           {loading ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-gray-400">Loading label rules from Gmail...</p>
-            </div>
+            <Table
+              isHeaderSticky
+              aria-label="Label rules table loading"
+              classNames={{
+                wrapper: "min-h-[222px]",
+                th: "bg-black/30 text-white border-b border-white/10",
+                td: "text-gray-200 border-b border-white/5",
+                tbody: "bg-black/10",
+              }}
+            >
+              <TableHeader columns={columns}>
+                {(column) => (
+                  <TableColumn key={column.uid} align={column.uid === "actions" ? "center" : "start"}>
+                    {column.name}
+                  </TableColumn>
+                )}
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <Skeleton className="h-6 w-20 rounded" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-14 rounded-full" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-6 w-16 rounded" />
+                        <Skeleton className="h-8 w-24 rounded" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : filters.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-gray-400">
