@@ -35,6 +35,7 @@ const columns = [
   { name: "CRITERIA", uid: "criteria" },
   { name: "LABELS APPLIED", uid: "labels" },
   { name: "ARCHIVE", uid: "archive" },
+  { name: "ACTIONS", uid: "actions" },
 ];
 
 export default function LabelRulesPage() {
@@ -48,6 +49,14 @@ export default function LabelRulesPage() {
   const [selectedFilterForModal, setSelectedFilterForModal] = useState<GmailApiFilter | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
+  const [selectedFilterForDelete, setSelectedFilterForDelete] = useState<GmailApiFilter | null>(null);
+  const [deleteOptions, setDeleteOptions] = useState({
+    deleteFilter: true,
+    deleteLabel: false,
+    deleteLabelJob: false,
+  });
+  const [deleting, setDeleting] = useState(false);
   const [contacts, setContacts] = useState<string[]>([]);
 
   // Autocomplete state
@@ -324,6 +333,74 @@ export default function LabelRulesPage() {
     };
   }, [fromSearchTimer]);
 
+  const handleDeleteLabelRule = async () => {
+    if (!selectedFilterForDelete) return;
+
+    setDeleting(true);
+    try {
+      const promises = [];
+
+      // Delete filter
+      if (deleteOptions.deleteFilter) {
+        promises.push(
+          fetch(`/api/gmail/filters/${selectedFilterForDelete.id}`, {
+            method: "DELETE",
+          })
+        );
+      }
+
+      // Delete labels associated with this rule
+      if (deleteOptions.deleteLabel) {
+        const labelsToDelete = selectedFilterForDelete.action.addLabelIds || [];
+        labelsToDelete.forEach((labelId) => {
+          promises.push(
+            fetch(`/api/gmail/labels/${labelId}`, {
+              method: "DELETE",
+            })
+          );
+        });
+      }
+
+      // Delete label job if it exists
+      if (deleteOptions.deleteLabelJob) {
+        promises.push(
+          fetch("/api/gmail/label-jobs", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              filterId: selectedFilterForDelete.id,
+            }),
+          })
+        );
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      const failures = results.filter((result) => result.status === "rejected");
+      if (failures.length > 0) {
+        addToast({
+          title: `Some deletions failed: ${failures.length} errors`,
+          color: "warning",
+        });
+      } else {
+        addToast({ title: "Label rule deleted successfully!", color: "success" });
+      }
+
+      // Refresh the list
+      loadLabelRules();
+      loadLabels();
+      setDeleteDrawerOpen(false);
+      setSelectedFilterForDelete(null);
+    } catch (err) {
+      console.error("Error deleting label rule:", err);
+      addToast({ title: "Failed to delete label rule. Please try again.", color: "danger" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleCreateLabelJob = async (filter: GmailApiFilter) => {
     if (!filter.action.addLabelIds || filter.action.addLabelIds.length === 0) {
       return;
@@ -534,6 +611,29 @@ export default function LabelRulesPage() {
             )}
           </div>
         );
+      case "actions":
+        return (
+          <Button
+            size="sm"
+            variant="flat"
+            color="danger"
+            className="text-xs"
+            onPress={() => {
+              setSelectedFilterForDelete(filter);
+              // Determine if labels are custom and if there's a label job
+              const customLabels =
+                filter.action.addLabelIds?.filter((labelId) => !labels.find((l) => l.id === labelId)) || [];
+              setDeleteOptions({
+                deleteFilter: true,
+                deleteLabel: customLabels.length > 0,
+                deleteLabelJob: false, // We'll check this later if needed
+              });
+              setDeleteDrawerOpen(true);
+            }}
+          >
+            🗑️ Delete
+          </Button>
+        );
       default:
         return "-";
     }
@@ -648,6 +748,9 @@ export default function LabelRulesPage() {
                         <Skeleton className="h-6 w-16 rounded" />
                         <Skeleton className="h-8 w-24 rounded" />
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-16 rounded" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1100,6 +1203,114 @@ export default function LabelRulesPage() {
               disabled={creating}
             >
               {creating ? "Creating..." : "Create Rule"}
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Delete Label Rule Drawer */}
+      <Drawer isOpen={deleteDrawerOpen} onOpenChange={setDeleteDrawerOpen} placement="right">
+        <DrawerContent className="bg-gray-800 border-l border-gray-600">
+          <DrawerHeader className="text-white bg-gray-800">🗑️ Delete Label Rule</DrawerHeader>
+          <DrawerBody className="bg-gray-800">
+            <div className="space-y-6">
+              <div className="text-sm text-gray-300">
+                <p className="mb-4">Are you sure you want to delete this label rule? This action cannot be undone.</p>
+                {selectedFilterForDelete && (
+                  <div className="bg-gray-900 p-4 rounded space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400">📋</span>
+                      <span className="text-white font-medium">Filter Criteria:</span>
+                    </div>
+                    <div className="text-gray-300 text-sm pl-6">{formatCriteria(selectedFilterForDelete.criteria)}</div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className="text-emerald-400">🏷️</span>
+                      <span className="text-white font-medium">Labels:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 pl-6">
+                      {selectedFilterForDelete.action.addLabelIds?.map((labelId) => {
+                        const label = labels.find((l) => l.id === labelId);
+                        const isCustom = !label;
+                        return (
+                          <Chip
+                            key={labelId}
+                            size="sm"
+                            variant="flat"
+                            className="text-xs"
+                            style={{
+                              backgroundColor: label?.color?.backgroundColor || (isCustom ? "#4a5568" : "#666"),
+                              color: label?.color?.textColor || "#fff",
+                            }}
+                          >
+                            {isCustom && "✨"} {label?.name || labelId}
+                          </Chip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">🗑️ Deletion Options</h3>
+                <div className="space-y-3">
+                  <Checkbox
+                    isSelected={deleteOptions.deleteFilter}
+                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteFilter: checked }))}
+                    className="text-white"
+                  >
+                    <div>
+                      <div className="font-medium">Delete Gmail Filter</div>
+                      <div className="text-sm text-gray-400">Remove the filter from Gmail</div>
+                    </div>
+                  </Checkbox>
+
+                  <Checkbox
+                    isSelected={deleteOptions.deleteLabel}
+                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabel: checked }))}
+                    className="text-white"
+                  >
+                    <div>
+                      <div className="font-medium">Delete Labels</div>
+                      <div className="text-sm text-gray-400">Remove all labels associated with this rule</div>
+                    </div>
+                  </Checkbox>
+
+                  <Checkbox
+                    isSelected={deleteOptions.deleteLabelJob}
+                    onValueChange={(checked) => setDeleteOptions((prev) => ({ ...prev, deleteLabelJob: checked }))}
+                    className="text-white"
+                  >
+                    <div>
+                      <div className="font-medium">Delete Label Job</div>
+                      <div className="text-sm text-gray-400">Remove any associated label processing job</div>
+                    </div>
+                  </Checkbox>
+                </div>
+              </div>
+
+              <div className="text-sm text-red-400 bg-red-900/20 p-4 rounded border border-red-400/30">
+                <strong>⚠️ Warning:</strong> Deleting labels will permanently remove them from your Gmail account and
+                unlabel all emails that had these labels.
+              </div>
+            </div>
+          </DrawerBody>
+          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
+            <Button
+              variant="ghost"
+              onPress={() => setDeleteDrawerOpen(false)}
+              className="text-gray-300 hover:text-white hover:bg-gray-600"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="solid"
+              color="danger"
+              onPress={() => handleDeleteLabelRule()}
+              disabled={deleting}
+              className="text-white"
+            >
+              {deleting ? "Deleting..." : "Delete Rule"}
             </Button>
           </DrawerFooter>
         </DrawerContent>

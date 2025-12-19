@@ -63,7 +63,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id: labelId } = await params;
 
   try {
-    const { email } = await getGmailClient(refreshToken);
+    const { gmail, email } = await getGmailClient(refreshToken);
+
+    // Delete from Gmail
+    await gmail.users.labels.delete({
+      userId: "me",
+      id: labelId,
+    });
+
+    // Delete from Firestore
     await deleteLabel(email, labelId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
