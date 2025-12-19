@@ -505,6 +505,7 @@ export default function LabelRulesPage() {
 
         // Refresh the list
         loadLabelRules();
+        loadLabels();
 
         addToast({ title: "Label rule created successfully!", color: "success" });
       } else {
