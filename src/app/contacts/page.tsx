@@ -694,9 +694,8 @@ function ContactsTable({
               value={automationQuery}
               onValueChange={setAutomationQuery}
               required
-              readOnly
               className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 mb-4"
-              description="Pre-populated with selected contacts (OR separated)"
+              description="Pre-populated with selected contacts (OR separated) - you can edit this"
             />
 
             <Checkbox isSelected={archiveEnabled} onValueChange={setArchiveEnabled} className="mb-4">
