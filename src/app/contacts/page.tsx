@@ -194,6 +194,7 @@ export default function ContactsPage() {
         totalCount={contactsData?.totalCount || 0}
         currentPage={currentPage}
         totalPages={contactsData?.totalPages || 0}
+        router={router}
         onPageChange={setCurrentPage}
         onSearchChange={(search) => {
           setSearchQuery(search);
@@ -219,6 +220,7 @@ function ContactsTable({
   totalCount,
   currentPage,
   totalPages,
+  router,
   onPageChange,
   onSearchChange,
 }: {
@@ -229,6 +231,7 @@ function ContactsTable({
   totalCount?: number;
   currentPage?: number;
   totalPages?: number;
+  router: any;
   onPageChange?: (page: number) => void;
   onSearchChange?: (search: string) => void;
 }) {
@@ -449,21 +452,23 @@ function ContactsTable({
                   color="success"
                   className="text-white justify-start sm:justify-center"
                   onPress={() => {
-                    // Pre-populate the automation query with selected contacts
+                    // Navigate to label rules page with selected contacts
                     const contactKeys =
                       selectedKeys === "all"
                         ? contacts.map((contact) => contact.email)
                         : Array.from(selectedKeys as Set<string>);
                     const selectedContacts = contacts.filter((contact) => contactKeys.includes(contact.email));
-                    const emails = selectedContacts.map((contact) => contact.email).join(" OR ");
-                    setAutomationQuery(emails);
-                    setLabelName(""); // Reset label name
-                    setSelectedLabelKey(null); // Reset selected label
-                    setArchiveEnabled(true); // Default to archive enabled
-                    setAutomationModalOpen(true);
+                    const emails = selectedContacts.map((contact) => contact.email);
+
+                    // Navigate to label-rules page with email parameters
+                    const params = new URLSearchParams();
+                    emails.forEach((email, index) => {
+                      params.append("fromEmail", email);
+                    });
+                    router.push(`/label-rules?${params.toString()}`);
                   }}
                 >
-                  🚀 Create label and automation
+                  🚀 Create Label Rule
                 </Button>
                 <Button
                   size="sm"

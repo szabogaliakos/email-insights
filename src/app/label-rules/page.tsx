@@ -76,6 +76,16 @@ export default function LabelRulesPage() {
     loadLabelRules();
     loadLabels();
     loadContacts();
+
+    // Check for pre-populated emails from URL params (from contacts page)
+    const params = new URLSearchParams(window.location.search);
+    const fromEmailsFromUrl = params.getAll("fromEmail");
+    if (fromEmailsFromUrl.length > 0) {
+      setFormData((prev) => ({ ...prev, fromEmails: fromEmailsFromUrl }));
+      setCreateDrawerOpen(true);
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   const checkAuth = async () => {
