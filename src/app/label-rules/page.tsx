@@ -979,137 +979,206 @@ export default function LabelRulesPage() {
 
       {/* Create Label Rule Drawer */}
       <Drawer isOpen={createDrawerOpen} onOpenChange={setCreateDrawerOpen} placement="right">
-        <DrawerContent className="bg-gray-800 border-l border-gray-600">
-          <DrawerHeader className="text-white bg-gray-800">➕ Create Label Rule</DrawerHeader>
-          <DrawerBody className="bg-gray-800">
-            <div className="space-y-6">
+        <DrawerContent className="bg-gradient-to-br from-background to-background/95 border-l border-default-200/50 shadow-2xl">
+          <DrawerHeader className="bg-gradient-to-r from-primary/10 to-secondary/10 border-b border-default-200/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-primary to-secondary rounded-lg">
+                <span className="text-xl">🏷️</span>
+              </div>
               <div>
-                <h3 className="text-lg font-semibold text-white mb-4">📋 Filter Criteria</h3>
-                <div className="space-y-4">
-                  <div className="space-y-3">
+                <h2 className="text-xl font-bold text-foreground">Create Label Rule</h2>
+                <p className="text-sm text-default-600">Automate email organization with smart filters</p>
+              </div>
+            </div>
+          </DrawerHeader>
+
+          <DrawerBody className="bg-background/50 backdrop-blur-sm">
+            <div className="space-y-8">
+              {/* Filter Criteria Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <span className="text-primary">📋</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Filter Criteria</h3>
+                    <p className="text-sm text-default-600">Define what emails this rule should apply to</p>
+                  </div>
+                </div>
+
+                <div className="bg-content1/30 backdrop-blur-sm border border-default-200/50 rounded-xl p-6 space-y-6">
+                  {/* From Emails */}
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-white">From Email Addresses</h4>
-                      <Button size="sm" variant="flat" color="primary" onPress={addEmailInput}>
-                        ➕ Add Email
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary">👤</span>
+                        <h4 className="text-sm font-medium text-foreground">From Email Addresses</h4>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        className="bg-primary/10 hover:bg-primary/20"
+                        onPress={addEmailInput}
+                      >
+                        <span className="text-primary">➕</span>
                       </Button>
                     </div>
-                    {formData.fromEmails.map((email, index) => (
-                      <div key={index} className="flex items-end gap-2">
-                        <div className="flex-1">
-                          <Autocomplete
-                            label={`Email ${index + 1}`}
-                            placeholder="Type at least 3 characters to search contacts..."
-                            allowsCustomValue={true}
-                            inputValue={email}
-                            onInputChange={(value) => handleEmailInputChange(index, value)}
-                            onSelectionChange={(key) => {
-                              const newEmails = [...formData.fromEmails];
-                              newEmails[index] = key ? String(key) : "";
-                              setFormData({ ...formData, fromEmails: newEmails });
-                            }}
-                            className="text-white"
-                            labelPlacement="outside"
-                            isLoading={fromLoading}
-                            isInvalid={index === 0 && !!fieldErrors.emails}
-                            errorMessage={index === 0 ? fieldErrors.emails : undefined}
-                          >
-                            {safeFromSuggestions.map((emailSuggestion) => (
-                              <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
-                                {emailSuggestion}
-                              </AutocompleteItem>
-                            ))}
-                          </Autocomplete>
+                    <div className="space-y-3">
+                      {formData.fromEmails.map((email, index) => (
+                        <div key={index} className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <Autocomplete
+                              label={`Sender ${index + 1}`}
+                              placeholder="Type email address or search contacts..."
+                              allowsCustomValue={true}
+                              inputValue={email}
+                              onInputChange={(value) => handleEmailInputChange(index, value)}
+                              onSelectionChange={(key) => {
+                                const newEmails = [...formData.fromEmails];
+                                newEmails[index] = key ? String(key) : "";
+                                setFormData({ ...formData, fromEmails: newEmails });
+                              }}
+                              className="text-foreground"
+                              labelPlacement="outside"
+                              isLoading={fromLoading}
+                              isInvalid={index === 0 && !!fieldErrors.emails}
+                              errorMessage={index === 0 ? fieldErrors.emails : undefined}
+                              variant="bordered"
+                            >
+                              {safeFromSuggestions.map((emailSuggestion) => (
+                                <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
+                                  {emailSuggestion}
+                                </AutocompleteItem>
+                              ))}
+                            </Autocomplete>
+                          </div>
+                          {formData.fromEmails.length > 1 && (
+                            <Button
+                              size="sm"
+                              variant="flat"
+                              color="danger"
+                              className="mb-1 bg-danger/10 hover:bg-danger/20"
+                              onPress={() => removeEmailInput(index)}
+                            >
+                              <span className="text-danger">🗑️</span>
+                            </Button>
+                          )}
                         </div>
-                        {formData.fromEmails.length > 1 && (
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            color="danger"
-                            className="mb-1"
-                            onPress={() => removeEmailInput(index)}
-                          >
-                            ❌
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <p className="text-xs text-gray-400">
-                      💡 Multiple emails will be combined with OR in the Gmail filter. Add as many emails as needed.
-                    </p>
+                      ))}
+                    </div>
+                    <div className="flex items-start gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <span className="text-primary mt-0.5">💡</span>
+                      <p className="text-xs text-default-700">
+                        Multiple emails are combined with OR logic. The rule will apply to emails from any of these
+                        addresses.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-3">
+
+                  {/* To Emails */}
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-white">To Email Addresses</h4>
-                      <Button size="sm" variant="flat" color="primary" onPress={addToEmailInput}>
-                        ➕ Add Email
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary">📧</span>
+                        <h4 className="text-sm font-medium text-foreground">To Email Addresses</h4>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        className="bg-primary/10 hover:bg-primary/20"
+                        onPress={addToEmailInput}
+                      >
+                        <span className="text-primary">➕</span>
                       </Button>
                     </div>
-                    {formData.toEmails.map((email, index) => (
-                      <div key={index} className="flex items-end gap-2">
-                        <div className="flex-1">
-                          <Autocomplete
-                            label={`Email ${index + 1}`}
-                            placeholder="Type at least 3 characters to search contacts..."
-                            allowsCustomValue={true}
-                            inputValue={email}
-                            onInputChange={(value) => handleToEmailInputChange(index, value)}
-                            onSelectionChange={(key) => {
-                              const newEmails = [...formData.toEmails];
-                              newEmails[index] = key ? String(key) : "";
-                              setFormData({ ...formData, toEmails: newEmails });
-                            }}
-                            className="text-white"
-                            labelPlacement="outside"
-                            isLoading={toLoading}
-                          >
-                            {safeToSuggestions.map((emailSuggestion) => (
-                              <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
-                                {emailSuggestion}
-                              </AutocompleteItem>
-                            ))}
-                          </Autocomplete>
+                    <div className="space-y-3">
+                      {formData.toEmails.map((email, index) => (
+                        <div key={index} className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <Autocomplete
+                              label={`Recipient ${index + 1}`}
+                              placeholder="Type email address or search contacts..."
+                              allowsCustomValue={true}
+                              inputValue={email}
+                              onInputChange={(value) => handleToEmailInputChange(index, value)}
+                              onSelectionChange={(key) => {
+                                const newEmails = [...formData.toEmails];
+                                newEmails[index] = key ? String(key) : "";
+                                setFormData({ ...formData, toEmails: newEmails });
+                              }}
+                              className="text-foreground"
+                              labelPlacement="outside"
+                              isLoading={toLoading}
+                              variant="bordered"
+                            >
+                              {safeToSuggestions.map((emailSuggestion) => (
+                                <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
+                                  {emailSuggestion}
+                                </AutocompleteItem>
+                              ))}
+                            </Autocomplete>
+                          </div>
+                          {formData.toEmails.length > 1 && (
+                            <Button
+                              size="sm"
+                              variant="flat"
+                              color="danger"
+                              className="mb-1 bg-danger/10 hover:bg-danger/20"
+                              onPress={() => removeToEmailInput(index)}
+                            >
+                              <span className="text-danger">🗑️</span>
+                            </Button>
+                          )}
                         </div>
-                        {formData.toEmails.length > 1 && (
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            color="danger"
-                            className="mb-1"
-                            onPress={() => removeToEmailInput(index)}
-                          >
-                            ❌
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <p className="text-xs text-gray-400">
-                      💡 Multiple emails will be combined with OR in the Gmail filter. Add as many emails as needed.
-                    </p>
+                      ))}
+                    </div>
                   </div>
-                  <Input
-                    label="Subject"
-                    placeholder="Email subject contains..."
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="text-white"
-                    labelPlacement="outside"
-                  />
+
+                  {/* Subject */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary">📝</span>
+                      <h4 className="text-sm font-medium text-foreground">Subject Filter</h4>
+                    </div>
+                    <Input
+                      label="Email Subject Contains"
+                      placeholder="Enter keywords to match in subject line..."
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      className="text-foreground"
+                      labelPlacement="outside"
+                      variant="bordered"
+                      startContent={<span className="text-default-400">🔍</span>}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">🏷️ Labels to Apply</h3>
-                <div className="space-y-3">
+              {/* Labels Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-secondary/10 rounded-lg">
+                    <span className="text-secondary">🏷️</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Labels to Apply</h3>
+                    <p className="text-sm text-default-600">Choose labels that will be automatically applied</p>
+                  </div>
+                </div>
+
+                <div className="bg-content1/30 backdrop-blur-sm border border-default-200/50 rounded-xl p-6 space-y-4">
                   <Autocomplete
-                    label="Add Label"
-                    placeholder="Type label name or select existing"
+                    label="Search or Create Label"
+                    placeholder="Type label name or select from existing..."
                     allowsCustomValue={true}
                     inputValue={labelInput}
                     onInputChange={(value) => {
                       setLabelInput(value);
-                      setFieldErrors((prev) => ({ ...prev, labels: "" })); // Clear label error when user types
+                      setFieldErrors((prev) => ({ ...prev, labels: "" }));
                     }}
-                    className="text-white"
+                    className="text-foreground"
                     labelPlacement="outside"
                     isInvalid={!!fieldErrors.labels}
                     errorMessage={fieldErrors.labels}
@@ -1119,93 +1188,150 @@ export default function LabelRulesPage() {
                           ...formData,
                           selectedLabels: [...formData.selectedLabels, key as string],
                         });
-                        setLabelInput(""); // Clear input after adding
+                        setLabelInput("");
                       }
                     }}
+                    variant="bordered"
+                    startContent={<span className="text-default-400">🏷️</span>}
                   >
                     {labels.map((label) => (
                       <AutocompleteItem key={label.id} textValue={label.name}>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <div
-                            className="w-3 h-3 rounded"
+                            className="w-4 h-4 rounded-full border-2 border-white/20"
                             style={{ backgroundColor: label.color?.backgroundColor || "#666" }}
                           />
-                          {label.name}
+                          <span className="font-medium">{label.name}</span>
                         </div>
                       </AutocompleteItem>
                     ))}
                   </Autocomplete>
 
                   {formData.selectedLabels.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.selectedLabels.map((labelId, index) => {
-                        const existingLabel = labels.find((l) => l.id === labelId);
-                        const isCustom = !existingLabel;
-                        const displayName = existingLabel ? existingLabel.name : labelId;
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <span className="text-secondary">📋</span>
+                        Selected Labels ({formData.selectedLabels.length})
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedLabels.map((labelId, index) => {
+                          const existingLabel = labels.find((l) => l.id === labelId);
+                          const isCustom = !existingLabel;
+                          const displayName = existingLabel ? existingLabel.name : labelId;
 
-                        return (
-                          <Chip
-                            key={index}
-                            size="sm"
-                            variant="flat"
-                            onClose={() => {
-                              setFormData({
-                                ...formData,
-                                selectedLabels: formData.selectedLabels.filter((_, i) => i !== index),
-                              });
-                            }}
-                            className="cursor-pointer"
-                            style={{
-                              backgroundColor: existingLabel?.color?.backgroundColor || (isCustom ? "#4a5568" : "#666"),
-                              color: existingLabel?.color?.textColor || "#fff",
-                            }}
-                          >
-                            {isCustom && "✨"} {displayName}
-                          </Chip>
-                        );
-                      })}
+                          return (
+                            <Chip
+                              key={index}
+                              size="md"
+                              variant="flat"
+                              onClose={() => {
+                                setFormData({
+                                  ...formData,
+                                  selectedLabels: formData.selectedLabels.filter((_, i) => i !== index),
+                                });
+                              }}
+                              className="cursor-pointer hover:scale-105 transition-transform bg-gradient-to-r border-0"
+                              style={{
+                                background: existingLabel?.color?.backgroundColor
+                                  ? `linear-gradient(135deg, ${existingLabel.color.backgroundColor}, ${existingLabel.color.backgroundColor}dd)`
+                                  : isCustom
+                                  ? "linear-gradient(135deg, #4a5568, #2d3748)"
+                                  : "linear-gradient(135deg, #666, #555)",
+                                color: existingLabel?.color?.textColor || "#fff",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                              }}
+                            >
+                              {isCustom && <span className="mr-1">✨</span>}
+                              {displayName}
+                            </Chip>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
-                  <p className="text-xs text-gray-400">
-                    💡 Type a custom label name or select from existing labels. Custom labels will be created
-                    automatically.
-                  </p>
+                  <div className="flex items-start gap-2 p-3 bg-secondary/5 border border-secondary/20 rounded-lg">
+                    <span className="text-secondary mt-0.5">💡</span>
+                    <p className="text-xs text-default-700">
+                      Type a custom label name to create it automatically, or select from your existing Gmail labels.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">📁 Archive Behavior</h3>
-                <Checkbox
-                  isSelected={formData.archive}
-                  onValueChange={(checked) => setFormData({ ...formData, archive: checked })}
-                  className="text-white"
-                >
-                  Archive matching emails (remove from inbox)
-                </Checkbox>
+              {/* Archive Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-warning/10 rounded-lg">
+                    <span className="text-warning">📁</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Archive Behavior</h3>
+                    <p className="text-sm text-default-600">Control inbox management for matched emails</p>
+                  </div>
+                </div>
+
+                <div className="bg-content1/30 backdrop-blur-sm border border-default-200/50 rounded-xl p-6">
+                  <div className="flex items-center gap-4">
+                    <Checkbox
+                      isSelected={formData.archive}
+                      onValueChange={(checked) => setFormData({ ...formData, archive: checked })}
+                      className="text-foreground"
+                      size="lg"
+                    />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-foreground">Archive matching emails</h4>
+                      <p className="text-sm text-default-600">Remove emails from inbox after applying labels</p>
+                    </div>
+                    <div className="text-2xl">{formData.archive ? "📦" : "📬"}</div>
+                  </div>
+                </div>
               </div>
 
-              <div className="text-sm text-gray-400 bg-gray-900 p-4 rounded">
-                <strong>Note:</strong> This will create a filter in your Gmail account that automatically applies labels
-                to future emails matching these criteria.
+              {/* Summary Card */}
+              <div className="bg-gradient-to-r from-primary/5 to-secondary/5 border border-primary/20 rounded-xl p-6">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gradient-to-r from-primary to-secondary rounded-lg">
+                    <span className="text-white text-lg">⚡</span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-foreground mb-2">Ready to Automate</h4>
+                    <p className="text-sm text-default-700">
+                      This will create a Gmail filter that automatically organizes your emails based on the criteria
+                      above. The rule will run in the background and apply labels to future matching emails.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </DrawerBody>
-          <DrawerFooter className="bg-gray-800 border-t border-gray-600">
+
+          <DrawerFooter className="bg-gradient-to-r from-background to-background/95 border-t border-default-200/30">
             <Button
               variant="ghost"
               onPress={() => setCreateDrawerOpen(false)}
-              className="text-gray-300 hover:text-white hover:bg-gray-600"
+              className="text-default-600 hover:text-foreground hover:bg-default/10"
               disabled={creating}
             >
               Cancel
             </Button>
             <Button
               onPress={() => handleCreateLabelRule()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               disabled={creating}
+              size="lg"
             >
-              {creating ? "Creating..." : "Create Rule"}
+              {creating ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  Creating Rule...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span>⚡</span>
+                  Create Automation Rule
+                </div>
+              )}
             </Button>
           </DrawerFooter>
         </DrawerContent>
