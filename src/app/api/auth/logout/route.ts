@@ -13,8 +13,27 @@ export async function GET(request: NextRequest) {
     cookieStore.delete("gmail_access_token");
 
     // Create response that redirects to homepage
-    // Use request.nextUrl.origin to get the proper base URL for the deployment
-    const baseUrl = request.nextUrl.origin || new URL(request.url).origin;
+    // Use the same URL construction logic as the OAuth redirect URI
+    let baseUrl: string;
+
+    const explicit = process.env.NEXT_PUBLIC_BASE_URL;
+    if (explicit) {
+      baseUrl = explicit;
+    } else if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      // For Google Cloud Run, try to construct from headers
+      const host = request.headers.get("host");
+      const protocol = request.headers.get("x-forwarded-proto") || "https";
+
+      if (host && !host.includes("0.0.0.0") && !host.includes("localhost")) {
+        baseUrl = `${protocol}://${host}`;
+      } else {
+        // Fallback to localhost for development
+        baseUrl = "http://localhost:3000";
+      }
+    }
+
     const response = NextResponse.redirect(new URL("/", baseUrl));
 
     // Ensure the auth cookies are cleared in the redirect response
