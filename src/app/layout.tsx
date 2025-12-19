@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gmail Merge | Inbox graph",
-  description: "Connect Gmail and view distinct merged senders/recipients, saved in Firestore.",
+  title: "LabelFlow | Organize Your Gmail Inbox",
+  description:
+    "Turn 38,000 emails into a clean, structured inbox with smart labels. Organize your inbox like a folder structure using Gmail labels — automatically.",
 };
 
 export default function RootLayout({

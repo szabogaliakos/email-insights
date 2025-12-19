@@ -114,7 +114,7 @@ export default function AppNavbar() {
         <NavbarBrand>
           <Link href="/" className="flex items-center gap-2 cursor-pointer">
             <AcmeLogo />
-            <p className="font-bold text-foreground">Gmail Insights</p>
+            <p className="font-bold text-foreground">LabelFlow</p>
           </Link>
         </NavbarBrand>
 
