@@ -10,6 +10,7 @@ import { Input } from "@heroui/input";
 import { Checkbox } from "@heroui/checkbox";
 import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
 import { Skeleton } from "@heroui/skeleton";
+import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import StepProgress from "@/components/StepProgress";
 
@@ -64,6 +65,15 @@ export default function LabelRulesPage() {
     subject: "",
     selectedLabels: [] as string[],
     archive: false,
+  });
+
+  // Label input state
+  const [labelInput, setLabelInput] = useState("");
+
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState({
+    labels: "",
+    emails: "",
   });
 
   // Ensure suggestions are always valid
@@ -224,6 +234,9 @@ export default function LabelRulesPage() {
     newEmails[index] = value;
     setFormData({ ...formData, fromEmails: newEmails });
 
+    // Clear email error when user types
+    setFieldErrors((prev) => ({ ...prev, emails: "" }));
+
     // Clear suggestions immediately when input is too short
     if (value.length < 3) {
       setFromSuggestions([]);
@@ -263,6 +276,9 @@ export default function LabelRulesPage() {
     const newEmails = [...formData.toEmails];
     newEmails[index] = value;
     setFormData({ ...formData, toEmails: newEmails });
+
+    // Clear email error when user types
+    setFieldErrors((prev) => ({ ...prev, emails: "" }));
 
     // Clear suggestions immediately when input is too short
     if (value.length < 3) {
@@ -331,24 +347,30 @@ export default function LabelRulesPage() {
         router.push("/label-jobs");
       } else {
         const error = await response.json();
-        alert(`Failed to create label job: ${error.error || "Unknown error"}`);
+        addToast({ title: `Failed to create label job: ${error.error || "Unknown error"}`, color: "danger" });
       }
     } catch (err) {
       console.error("Error creating label job:", err);
-      alert("Failed to create label job. Please try again.");
+      addToast({ title: "Failed to create label job. Please try again.", color: "danger" });
     }
   };
 
   const handleCreateLabelRule = async () => {
-    if (formData.selectedLabels.length === 0) {
-      alert("Please select at least one label");
+    // Include typed custom label if present
+    let selectedLabels = [...formData.selectedLabels];
+    if (labelInput.trim() && !selectedLabels.includes(labelInput.trim())) {
+      selectedLabels.push(labelInput.trim());
+    }
+
+    if (selectedLabels.length === 0) {
+      setFieldErrors((prev) => ({ ...prev, labels: "Please select at least one label" }));
       return;
     }
 
     // Check if at least one email is provided
     const validEmails = formData.fromEmails.filter((email) => email.trim());
     if (validEmails.length === 0) {
-      alert("Please enter at least one email address");
+      setFieldErrors((prev) => ({ ...prev, emails: "Please enter at least one email address" }));
       return;
     }
 
@@ -369,7 +391,7 @@ export default function LabelRulesPage() {
 
       // Build action object
       const action: any = {
-        addLabelIds: formData.selectedLabels,
+        addLabelIds: selectedLabels,
       };
 
       if (formData.archive) {
@@ -400,19 +422,21 @@ export default function LabelRulesPage() {
           selectedLabels: [],
           archive: false,
         });
+        setLabelInput("");
+        setFieldErrors({ labels: "", emails: "" });
         setCreateDrawerOpen(false);
 
         // Refresh the list
         loadLabelRules();
 
-        alert("Label rule created successfully!");
+        addToast({ title: "Label rule created successfully!", color: "success" });
       } else {
         const error = await response.json();
-        alert(`Failed to create label rule: ${error.error || "Unknown error"}`);
+        addToast({ title: `Failed to create label rule: ${error.error || "Unknown error"}`, color: "danger" });
       }
     } catch (err) {
       console.error("Error creating label rule:", err);
-      alert("Failed to create label rule. Please try again.");
+      addToast({ title: "Failed to create label rule. Please try again.", color: "danger" });
     } finally {
       setCreating(false);
     }
@@ -880,6 +904,8 @@ export default function LabelRulesPage() {
                             className="text-white"
                             labelPlacement="outside"
                             isLoading={fromLoading}
+                            isInvalid={index === 0 && !!fieldErrors.emails}
+                            errorMessage={index === 0 ? fieldErrors.emails : undefined}
                           >
                             {safeFromSuggestions.map((emailSuggestion) => (
                               <AutocompleteItem key={emailSuggestion} textValue={emailSuggestion}>
@@ -972,14 +998,22 @@ export default function LabelRulesPage() {
                     label="Add Label"
                     placeholder="Type label name or select existing"
                     allowsCustomValue={true}
+                    inputValue={labelInput}
+                    onInputChange={(value) => {
+                      setLabelInput(value);
+                      setFieldErrors((prev) => ({ ...prev, labels: "" })); // Clear label error when user types
+                    }}
                     className="text-white"
                     labelPlacement="outside"
+                    isInvalid={!!fieldErrors.labels}
+                    errorMessage={fieldErrors.labels}
                     onSelectionChange={(key) => {
-                      if (key && !formData.selectedLabels.includes(key as string)) {
+                      if (key) {
                         setFormData({
                           ...formData,
                           selectedLabels: [...formData.selectedLabels, key as string],
                         });
+                        setLabelInput(""); // Clear input after adding
                       }
                     }}
                   >
@@ -1061,9 +1095,9 @@ export default function LabelRulesPage() {
               Cancel
             </Button>
             <Button
-              onPress={handleCreateLabelRule}
+              onPress={() => handleCreateLabelRule()}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={creating || formData.selectedLabels.length === 0}
+              disabled={creating}
             >
               {creating ? "Creating..." : "Create Rule"}
             </Button>

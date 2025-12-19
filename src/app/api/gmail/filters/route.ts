@@ -125,6 +125,47 @@ export async function POST(request: NextRequest) {
     const { gmail } = await getGmailClient(refreshToken);
     const data = await request.json();
 
+    // Ensure all labels in addLabelIds are valid label IDs
+    if (data.filter.action?.addLabelIds) {
+      // Get existing labels
+      const labelsResponse = await gmail.users.labels.list({
+        userId: "me",
+      });
+      const existingLabels = labelsResponse.data.labels || [];
+      const labelIdMap = new Map<string, string>();
+      existingLabels.forEach((label: any) => {
+        if (label.id && label.name) {
+          labelIdMap.set(label.id, label.name);
+          labelIdMap.set(label.name, label.id); // Also map name to ID for quick lookup
+        }
+      });
+
+      const resolvedLabelIds: string[] = [];
+      for (const label of data.filter.action.addLabelIds) {
+        if (typeof label === "string" && labelIdMap.has(label)) {
+          // It's already an ID or name that exists
+          const existingId = labelIdMap.get(label);
+          if (existingId && !resolvedLabelIds.includes(existingId)) {
+            resolvedLabelIds.push(existingId);
+          }
+        } else if (typeof label === "string") {
+          // It's a new label name, create it
+          const createResponse = await gmail.users.labels.create({
+            userId: "me",
+            requestBody: {
+              name: label,
+              labelListVisibility: "labelShow",
+              messageListVisibility: "show",
+            },
+          });
+          const newLabel = createResponse.data;
+          resolvedLabelIds.push(newLabel.id!);
+        }
+      }
+
+      data.filter.action.addLabelIds = resolvedLabelIds;
+    }
+
     const response = await gmail.users.settings.filters.create({
       userId: "me",
       requestBody: data.filter,
