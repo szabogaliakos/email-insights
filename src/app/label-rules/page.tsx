@@ -49,6 +49,11 @@ export default function LabelRulesPage() {
   const [creating, setCreating] = useState(false);
   const [contacts, setContacts] = useState<string[]>([]);
 
+  // Autocomplete state
+  const [fromSuggestions, setFromSuggestions] = useState<string[]>([]);
+  const [fromLoading, setFromLoading] = useState(false);
+  const [fromSearchTimer, setFromSearchTimer] = useState<NodeJS.Timeout | null>(null);
+
   // Form state for creating new label rule
   const [formData, setFormData] = useState({
     from: "",
@@ -57,6 +62,9 @@ export default function LabelRulesPage() {
     selectedLabels: [] as string[],
     archive: false,
   });
+
+  // Ensure suggestions are always valid
+  const safeFromSuggestions = fromSuggestions && Array.isArray(fromSuggestions) ? fromSuggestions : [];
 
   useEffect(() => {
     // Check authentication first
@@ -143,6 +151,69 @@ export default function LabelRulesPage() {
       setContacts([]);
     }
   };
+
+  // Debounced search for "from" autocomplete
+  const searchContacts = async (query: string) => {
+    if (query.length < 3) {
+      setFromSuggestions([]);
+      return;
+    }
+
+    setFromLoading(true);
+    try {
+      // Search contacts API with limit 10
+      const res = await fetch(`/api/contacts?search=${encodeURIComponent(query)}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        const contacts = data.contacts || [];
+        const emails = Array.isArray(contacts) ? contacts.map((c: any) => c?.email).filter(Boolean) : [];
+        setFromSuggestions(emails);
+      } else {
+        setFromSuggestions([]);
+      }
+    } catch (err) {
+      console.error("Error searching contacts:", err);
+      setFromSuggestions([]);
+    } finally {
+      setFromLoading(false);
+    }
+  };
+
+  const handleFromInputChange = (value: string) => {
+    setFormData({ ...formData, from: value });
+
+    // Clear suggestions immediately when input is too short
+    if (value.length < 3) {
+      setFromSuggestions([]);
+      if (fromSearchTimer) {
+        clearTimeout(fromSearchTimer);
+      }
+      return;
+    }
+
+    // Clear existing timer
+    if (fromSearchTimer) {
+      clearTimeout(fromSearchTimer);
+    }
+
+    // Set new timer for debounced search (300ms)
+    const timer = setTimeout(() => {
+      if (value.length >= 3) {
+        searchContacts(value);
+      }
+    }, 300);
+
+    setFromSearchTimer(timer);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (fromSearchTimer) {
+        clearTimeout(fromSearchTimer);
+      }
+    };
+  }, [fromSearchTimer]);
 
   const handleCreateLabelJob = async (filter: GmailApiFilter) => {
     if (!filter.action.addLabelIds || filter.action.addLabelIds.length === 0) {
@@ -680,15 +751,16 @@ export default function LabelRulesPage() {
                 <div className="space-y-4">
                   <Autocomplete
                     label="From"
-                    placeholder="sender@example.com"
+                    placeholder="Type at least 3 characters to search contacts..."
                     allowsCustomValue={true}
-                    inputValue={formData.from}
-                    onInputChange={(value) => setFormData({ ...formData, from: value })}
-                    onSelectionChange={(key) => setFormData({ ...formData, from: key as string })}
+                    inputValue={formData.from || ""}
+                    onInputChange={handleFromInputChange}
+                    onSelectionChange={(key) => setFormData({ ...formData, from: key ? String(key) : "" })}
                     className="text-white"
                     labelPlacement="outside"
+                    isLoading={fromLoading}
                   >
-                    {contacts.slice(0, 50).map((email) => (
+                    {safeFromSuggestions.map((email) => (
                       <AutocompleteItem key={email} textValue={email}>
                         {email}
                       </AutocompleteItem>
