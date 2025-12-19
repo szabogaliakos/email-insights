@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@heroui/button";
+import { Skeleton } from "@heroui/skeleton";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import StepProgress from "@/components/StepProgress";
@@ -340,6 +341,31 @@ export default function LabelJobsPage() {
           </div>
         </div>
       )}
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-blue-400 mb-2">
+            {jobs.filter((j) => j.status === "completed").length}
+          </div>
+          <div className="text-sm text-gray-400">Completed</div>
+        </div>
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-yellow-400 mb-2">
+            {jobs.filter((j) => j.status === "running").length}
+          </div>
+          <div className="text-sm text-gray-400">Running</div>
+        </div>
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-green-400 mb-2">
+            {jobs.filter((j) => j.status === "pending").length}
+          </div>
+          <div className="text-sm text-gray-400">Pending</div>
+        </div>
+        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-red-400 mb-2">{jobs.filter((j) => j.status === "failed").length}</div>
+          <div className="text-sm text-gray-400">Failed</div>
+        </div>
+      </div>
 
       <div className="space-y-6">
         <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-green-900/20">
@@ -352,9 +378,35 @@ export default function LabelJobsPage() {
 
           <div className="p-6">
             {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-400 border-t-transparent mx-auto mb-4"></div>
-                <p className="text-sm text-gray-400">Loading automation jobs...</p>
+              <div className="space-y-4">
+                {/* Skeleton job items */}
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="p-6 rounded-lg border border-gray-600/30 backdrop-blur-sm bg-gray-800/20">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-start gap-4">
+                        <Skeleton className="w-8 h-8 rounded-full" />
+                        <div className="flex-1">
+                          <Skeleton className="h-5 w-48 mb-2" />
+                          <Skeleton className="h-4 w-64 mb-3" />
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-5 w-24 rounded-full" />
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Skeleton className="h-4 w-12 mb-2" />
+                        <Skeleton className="h-2 w-24 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-8 w-16 rounded" />
+                      <Skeleton className="h-8 w-16 rounded" />
+                      <Skeleton className="h-8 w-20 rounded" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : jobs.length === 0 ? (
               <div className="text-center py-12">
@@ -515,34 +567,6 @@ export default function LabelJobsPage() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-            <div className="text-3xl font-bold text-blue-400 mb-2">
-              {jobs.filter((j) => j.status === "completed").length}
-            </div>
-            <div className="text-sm text-gray-400">Completed</div>
-          </div>
-          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-            <div className="text-3xl font-bold text-yellow-400 mb-2">
-              {jobs.filter((j) => j.status === "running").length}
-            </div>
-            <div className="text-sm text-gray-400">Running</div>
-          </div>
-          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">
-              {jobs.filter((j) => j.status === "pending").length}
-            </div>
-            <div className="text-sm text-gray-400">Pending</div>
-          </div>
-          <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-            <div className="text-3xl font-bold text-red-400 mb-2">
-              {jobs.filter((j) => j.status === "failed").length}
-            </div>
-            <div className="text-sm text-gray-400">Failed</div>
           </div>
         </div>
       </div>
