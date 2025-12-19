@@ -373,15 +373,15 @@ export default function ScanPage() {
       {/* Step Progress Bar */}
       <StepProgress currentStep={1} />
 
-      <div className="mb-12 text-center">
-        <h1 className="text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+      <div className="mb-8 md:mb-12 text-center px-4">
+        <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Gmail Scanner
         </h1>
-        <p className="text-xl text-default-600 max-w-3xl mx-auto">
+        <p className="text-lg md:text-xl text-default-600 max-w-3xl mx-auto">
           Discover and analyze your complete email network with our powerful scanning engines. Extract contacts,
           patterns, and insights from your Gmail history.
         </p>
-        <div className="w-24 h-1 bg-gradient-to-r from-primary to-secondary mx-auto mt-4 rounded-full"></div>
+        <div className="w-16 md:w-24 h-1 bg-gradient-to-r from-primary to-secondary mx-auto mt-4 rounded-full"></div>
       </div>
 
       {/* Stats Cards */}
@@ -412,16 +412,16 @@ export default function ScanPage() {
       </section>
 
       {/* Scan Method Selection */}
-      <div className="mb-8 bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl p-6 shadow-lg">
-        <h2 className="text-2xl font-bold text-foreground mb-4">Choose Your Scanning Engine</h2>
+      <div className="mb-8 bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl p-4 md:p-6 shadow-lg">
+        <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4">Choose Your Scanning Engine</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="bg-background/50 rounded-lg p-4 border border-primary/20">
-            <h3 className="text-lg font-semibold text-primary mb-2">Fast IMAP Scanner</h3>
-            <p className="text-sm text-default-600 mb-3">
+            <h3 className="text-base md:text-lg font-semibold text-primary mb-2">Fast IMAP Scanner</h3>
+            <p className="text-sm text-default-600 mb-3 leading-relaxed">
               Requires IMAP access setup in Settings. Extremely fast scanning with resumable progress.
             </p>
             <div className="mb-3">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <input
                   type="radio"
                   name="scanMethod"
@@ -431,7 +431,7 @@ export default function ScanPage() {
                   disabled={!imapSettings.hasPassword}
                   className="accent-primary"
                 />
-                Fast IMAP Scan{!imapSettings.hasPassword && " (Password required)"}
+                <span className="text-sm">Fast IMAP Scan{!imapSettings.hasPassword && " (Password required)"}</span>
               </label>
             </div>
             {imapSettings.hasPassword && (
@@ -440,12 +440,12 @@ export default function ScanPage() {
           </div>
 
           <div className="bg-background/50 rounded-lg p-4 border border-secondary/20">
-            <h3 className="text-lg font-semibold text-secondary mb-2">Gmail API Scanner</h3>
-            <p className="text-sm text-default-600 mb-3">
+            <h3 className="text-base md:text-lg font-semibold text-secondary mb-2">Gmail API Scanner</h3>
+            <p className="text-sm text-default-600 mb-3 leading-relaxed">
               Uses Gmail API with OAuth authentication. Rate-limited but reliable scanning.
             </p>
             <div className="mb-3">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <input
                   type="radio"
                   name="scanMethod"
@@ -454,7 +454,7 @@ export default function ScanPage() {
                   onChange={() => setScanMethod("api")}
                   className="accent-secondary"
                 />
-                API Scan (2000 messages max)
+                <span className="text-sm">API Scan (2000 messages max)</span>
               </label>
             </div>
             <div className="text-xs text-secondary mt-2">🔄 Accumulates across multiple scans</div>
@@ -463,21 +463,21 @@ export default function ScanPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="mb-8 flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
-        <div className="flex gap-4">
-          {!imapSettings.hasPassword && (
-            <Button
-              variant="solid"
-              color="secondary"
-              className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-300 text-base px-6 py-3"
-              onPress={() => router.push("/settings")}
-            >
-              ⚙️ Setup IMAP Access
-            </Button>
-          )}
+      <div className="mb-8 flex flex-col gap-4 justify-center items-center px-4">
+        {!imapSettings.hasPassword && (
+          <Button
+            variant="solid"
+            color="secondary"
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-300 text-sm md:text-base px-4 md:px-6 py-2 md:py-3 w-full max-w-xs"
+            onPress={() => router.push("/settings")}
+          >
+            ⚙️ Setup IMAP Access
+          </Button>
+        )}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full justify-center items-center">
           <Button
             variant="bordered"
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-lg px-8 py-3"
+            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-sm md:text-lg px-6 md:px-8 py-2 md:py-3 min-w-[200px] md:min-w-[250px]"
             onPress={isScanning ? handleStopScan : handleSync}
             isDisabled={!isConnected || syncing || (!imapSettings.hasPassword && scanMethod === "imap")}
           >
@@ -485,7 +485,7 @@ export default function ScanPage() {
           </Button>
           <Button
             variant="ghost"
-            className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-lg px-8 py-3"
+            className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-sm md:text-lg px-6 md:px-8 py-2 md:py-3"
             onPress={() => {
               loadStats();
               loadIMAPProgress();

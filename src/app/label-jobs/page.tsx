@@ -312,15 +312,15 @@ export default function LabelJobsPage() {
       {/* Step Progress Bar */}
       <StepProgress currentStep={4} />
 
-      <div className="mb-12 text-center">
-        <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+      <div className="mb-8 md:mb-12 text-center px-4">
+        <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
           Label Jobs
         </h1>
-        <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
           Monitor the progress and status of your email automation jobs. Track scans, rule applications, and system
           tasks in real-time.
         </p>
-        <div className="w-24 h-1 bg-gradient-to-r from-green-400 to-emerald-400 mx-auto mt-4 rounded-full"></div>
+        <div className="w-16 md:w-24 h-1 bg-gradient-to-r from-green-400 to-emerald-400 mx-auto mt-4 rounded-full"></div>
       </div>
 
       <div className="mb-8 flex gap-6 justify-center">
@@ -421,27 +421,27 @@ export default function LabelJobsPage() {
                 {jobs.map((job) => (
                   <div
                     key={job.id}
-                    className={`p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 ${getStatusColor(
+                    className={`p-4 md:p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 ${getStatusColor(
                       job.status
                     )}`}
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-4">
-                        <div className="text-2xl">{getStatusIcon(job.status)}</div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">{job.name}</h3>
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="text-2xl flex-shrink-0">{getStatusIcon(job.status)}</div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base md:text-lg font-semibold text-white">{job.name}</h3>
                           <p className="text-sm text-gray-300 mb-2">{job.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-400">
-                            <span className="px-2 py-1 bg-black/20 rounded-full">{getTypeLabel(job.type)}</span>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-gray-400">
+                            <span className="px-2 py-1 bg-black/20 rounded-full w-fit">{getTypeLabel(job.type)}</span>
                             <span>Created: {formatDate(job.createdAt)}</span>
                             {job.startedAt && <span>Duration: {formatDuration(job.startedAt, job.completedAt)}</span>}
                           </div>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-white mb-1">{job.progress}%</div>
-                        <div className="w-24 h-2 bg-black/30 rounded-full overflow-hidden">
+                      <div className="flex flex-col items-end gap-2 md:text-right">
+                        <div className="text-sm font-medium text-white">{job.progress}%</div>
+                        <div className="w-full md:w-24 h-2 bg-black/30 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-500"
                             style={{ width: `${job.progress}%` }}
@@ -451,12 +451,12 @@ export default function LabelJobsPage() {
                     </div>
 
                     {/* Job Control Buttons */}
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex flex-wrap gap-2 mt-4">
                       {job.status === "pending" && (
                         <Button
                           size="sm"
                           variant="flat"
-                          className="bg-green-600/20 text-green-400 hover:bg-green-600/30"
+                          className="bg-green-600/20 text-green-400 hover:bg-green-600/30 text-sm"
                           onPress={() => handleStartJob(job.id)}
                         >
                           ▶️ Start
@@ -467,7 +467,7 @@ export default function LabelJobsPage() {
                         <Button
                           size="sm"
                           variant="flat"
-                          className="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30"
+                          className="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 text-sm"
                           onPress={() => handlePauseJob(job.id)}
                         >
                           ⏸️ Pause
@@ -478,7 +478,7 @@ export default function LabelJobsPage() {
                         <Button
                           size="sm"
                           variant="flat"
-                          className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                          className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-sm"
                           onPress={() => handleResumeJob(job.id)}
                         >
                           ▶️ Resume
@@ -489,7 +489,7 @@ export default function LabelJobsPage() {
                         <Button
                           size="sm"
                           variant="flat"
-                          className="bg-red-600/20 text-red-400 hover:bg-red-600/30"
+                          className="bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm"
                           onPress={() => handleCancelJob(job.id)}
                         >
                           ⏹️ Cancel
@@ -500,7 +500,7 @@ export default function LabelJobsPage() {
                         <Button
                           size="sm"
                           variant="flat"
-                          className="bg-red-800/20 text-red-300 hover:bg-red-800/30 border border-red-700/50"
+                          className="bg-red-800/20 text-red-300 hover:bg-red-800/30 border border-red-700/50 text-sm"
                           onPress={() => handleDeleteJob(job.id)}
                         >
                           🗑️ Delete
@@ -548,7 +548,7 @@ export default function LabelJobsPage() {
 
                     {/* Label Job Specific Info */}
                     {job.type === "label_application" && (
-                      <div className="mt-4 grid grid-cols-3 gap-4 text-xs text-gray-400">
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-400">
                         <div>
                           <div className="font-medium">Messages Processed</div>
                           <div>{job.messagesProcessed || 0}</div>
