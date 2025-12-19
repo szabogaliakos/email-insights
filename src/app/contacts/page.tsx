@@ -241,8 +241,6 @@ function ContactsTable({
     column: "email",
     direction: "ascending",
   });
-  const [debouncedSearchTimer, setDebouncedSearchTimer] = useState<NodeJS.Timeout | null>(null);
-
   // Labels for autocomplete
   const [availableLabels, setAvailableLabels] = useState<any[]>([]);
   const [labelsLoading, setLabelsLoading] = useState(false);
@@ -254,6 +252,7 @@ function ContactsTable({
   const [automationQuery, setAutomationQuery] = useState("");
   const [archiveEnabled, setArchiveEnabled] = useState(true);
   const [creatingAutomation, setCreatingAutomation] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Load labels for autocomplete
   const loadLabels = async () => {
@@ -294,41 +293,23 @@ function ContactsTable({
     });
   }, [contacts, sortDescriptor]);
 
-  // Debounced search function
+  // Handle search button click
+  const handleSearch = () => {
+    if (onSearchChange) {
+      onSearchChange(searchInput);
+    }
+  };
+
+  // Handle input change (just update local state)
   const handleSearchInput = (value: string) => {
     setSearchInput(value);
-
-    // Clear existing timer
-    if (debouncedSearchTimer) {
-      clearTimeout(debouncedSearchTimer);
-    }
-
-    // Set new timer to debounce search
-    const timer = setTimeout(() => {
-      if (onSearchChange) onSearchChange(value);
-    }, 500); // 500ms delay after user stops typing
-
-    setDebouncedSearchTimer(timer);
   };
 
-  // Clear search - immediate call
+  // Clear search
   const handleClearSearch = () => {
     setSearchInput("");
-    if (debouncedSearchTimer) {
-      clearTimeout(debouncedSearchTimer);
-      setDebouncedSearchTimer(null);
-    }
     if (onSearchChange) onSearchChange("");
   };
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (debouncedSearchTimer) {
-        clearTimeout(debouncedSearchTimer);
-      }
-    };
-  }, [debouncedSearchTimer]);
 
   const copyToClipboard = async (text: string, isMultiple: boolean = false) => {
     try {
@@ -540,21 +521,40 @@ function ContactsTable({
       {/* Always visible search above the table */}
       <div className="p-6 pb-0">
         <div className="flex justify-between gap-3 items-end mb-4">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%] bg-default/5 border-default-300"
-            placeholder="Search by email..."
-            startContent="🔍"
-            endContent={
-              loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-              ) : null
-            }
-            value={searchInput}
-            onClear={handleClearSearch}
-            onValueChange={handleSearchInput}
-            isDisabled={loading}
-          />
+          <div className="flex gap-3 flex-1 max-w-md">
+            <Input
+              isClearable
+              className="flex-1 bg-default/5 border-default-300"
+              placeholder="Search by email..."
+              startContent="🔍"
+              value={searchInput}
+              onClear={handleClearSearch}
+              onValueChange={handleSearchInput}
+              isDisabled={loading}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+            />
+            <Button
+              variant="solid"
+              color="primary"
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 px-6"
+              onPress={handleSearch}
+              isDisabled={loading}
+              size="lg"
+            >
+              {loading && isSearching ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span>🔍</span>
+                  Search
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
