@@ -9,6 +9,7 @@ import { Button } from "@heroui/button";
 import { Input, Textarea } from "@heroui/input";
 import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/drawer";
+import { Skeleton } from "@heroui/skeleton";
 import { addToast } from "@heroui/toast";
 import { useRouter } from "next/navigation";
 import type { Selection, SortDescriptor } from "@heroui/react";
@@ -554,10 +555,48 @@ function ContactsTable({
 
       <div className="p-6">
         {loading ? (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-            <p className="text-sm text-default-500">Loading contacts...</p>
-          </div>
+          <Table
+            isHeaderSticky
+            aria-label="Contacts table loading"
+            classNames={{
+              wrapper: "min-h-[222px]",
+              th: "bg-default/20 text-foreground border-b border-default-200",
+              td: "text-default-600 border-b border-default/20",
+              tbody: "bg-default/5",
+            }}
+          >
+            <TableHeader columns={headerColumns}>
+              {(column) => (
+                <TableColumn
+                  key={column.uid}
+                  align={column.uid === "actions" ? "center" : "start"}
+                  allowsSorting={column.sortable}
+                >
+                  {column.name}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 8 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <Skeleton className="h-8 w-16 rounded" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         ) : (
           <>
             {contacts.length > 0 ? (
