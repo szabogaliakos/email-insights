@@ -312,25 +312,27 @@ export default function LabelJobsPage() {
       {/* Step Progress Bar */}
       <StepProgress currentStep={4} />
 
-      <div className="mb-8 md:mb-12 text-center px-4">
-        <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+      <div className="mb-12 text-center">
+        <h1 className="text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Label Jobs
         </h1>
-        <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
-          Monitor the progress and status of your email automation jobs. Track scans, rule applications, and system
-          tasks in real-time.
+        <p className="text-xl text-default-600 max-w-3xl mx-auto">
+          Monitor your Gmail automation progress with real-time tracking. View job status, performance metrics, and
+          processing history for all your email organization tasks.
         </p>
-        <div className="w-16 md:w-24 h-1 bg-gradient-to-r from-green-400 to-emerald-400 mx-auto mt-4 rounded-full"></div>
+        <div className="w-24 h-1 bg-gradient-to-r from-primary to-secondary mx-auto mt-4 rounded-full"></div>
       </div>
 
-      <div className="mb-8 flex gap-6 justify-center">
-        <Button
-          variant="ghost"
-          className="text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300"
-          onPress={loadJobs}
-        >
-          ⟳ Refresh Jobs
-        </Button>
+      <div className="mb-8 flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
+        <div className="flex gap-4">
+          <Button
+            variant="ghost"
+            className="text-default-600 hover:text-foreground hover:bg-default/10 transition-all duration-300 text-base px-6 py-3"
+            onPress={loadJobs}
+          >
+            ⟳ Refresh Jobs
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -343,231 +345,214 @@ export default function LabelJobsPage() {
       )}
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-          <div className="text-3xl font-bold text-blue-400 mb-2">
+        <div className="bg-success/10 backdrop-blur-md border border-success/20 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-success mb-2">
             {jobs.filter((j) => j.status === "completed").length}
           </div>
-          <div className="text-sm text-gray-400">Completed</div>
+          <div className="text-sm text-default-600">Completed</div>
         </div>
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-          <div className="text-3xl font-bold text-yellow-400 mb-2">
+        <div className="bg-primary/10 backdrop-blur-md border border-primary/20 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-primary mb-2">
             {jobs.filter((j) => j.status === "running").length}
           </div>
-          <div className="text-sm text-gray-400">Running</div>
+          <div className="text-sm text-default-600">Running</div>
         </div>
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-          <div className="text-3xl font-bold text-green-400 mb-2">
+        <div className="bg-warning/10 backdrop-blur-md border border-warning/20 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-warning mb-2">
             {jobs.filter((j) => j.status === "pending").length}
           </div>
-          <div className="text-sm text-gray-400">Pending</div>
+          <div className="text-sm text-default-600">Pending</div>
         </div>
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-6 text-center">
-          <div className="text-3xl font-bold text-red-400 mb-2">{jobs.filter((j) => j.status === "failed").length}</div>
-          <div className="text-sm text-gray-400">Failed</div>
+        <div className="bg-danger/10 backdrop-blur-md border border-danger/20 rounded-xl p-6 text-center">
+          <div className="text-3xl font-bold text-danger mb-2">{jobs.filter((j) => j.status === "failed").length}</div>
+          <div className="text-sm text-default-600">Failed</div>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl shadow-green-900/20">
-          <div className="p-6 border-b border-white/10">
-            <h2 className="text-2xl font-semibold text-white mb-2">⚙️ Automation Jobs Dashboard</h2>
-            <p className="text-sm text-gray-400">
-              {loading ? "Loading jobs..." : `Last updated: ${new Date().toLocaleTimeString()}`}
-            </p>
-          </div>
-
-          <div className="p-6">
-            {loading ? (
-              <div className="space-y-4">
-                {/* Skeleton job items */}
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="p-6 rounded-lg border border-gray-600/30 backdrop-blur-sm bg-gray-800/20">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-4">
-                        <Skeleton className="w-8 h-8 rounded-full" />
-                        <div className="flex-1">
-                          <Skeleton className="h-5 w-48 mb-2" />
-                          <Skeleton className="h-4 w-64 mb-3" />
-                          <div className="flex items-center gap-4">
-                            <Skeleton className="h-5 w-24 rounded-full" />
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-4 w-20" />
-                          </div>
+      <div className="bg-content1/30 backdrop-blur-md border border-default-200 rounded-xl shadow-2xl">
+        <div className="p-6 border-b border-default-200">
+          <p className="text-sm font-medium text-primary">Job Monitoring</p>
+          <h3 className="text-xl font-semibold text-foreground">Automation Jobs Dashboard</h3>
+          <p className="text-sm text-default-600 mt-1">
+            {loading ? "Loading jobs..." : `Last updated: ${new Date().toLocaleTimeString()}`}
+          </p>
+        </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="space-y-4">
+              {/* Skeleton job items */}
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="p-6 rounded-lg border border-gray-600/30 backdrop-blur-sm bg-gray-800/20">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                      <Skeleton className="w-8 h-8 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-5 w-48 mb-2" />
+                        <Skeleton className="h-4 w-64 mb-3" />
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="h-5 w-24 rounded-full" />
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-20" />
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Skeleton className="h-4 w-12 mb-2" />
-                        <Skeleton className="h-2 w-24 rounded-full" />
-                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-16 rounded" />
-                      <Skeleton className="h-8 w-16 rounded" />
-                      <Skeleton className="h-8 w-20 rounded" />
+                    <div className="text-right">
+                      <Skeleton className="h-4 w-12 mb-2" />
+                      <Skeleton className="h-2 w-24 rounded-full" />
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : jobs.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">⚙️</span>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-16 rounded" />
+                    <Skeleton className="h-8 w-16 rounded" />
+                    <Skeleton className="h-8 w-20 rounded" />
+                  </div>
                 </div>
-                <p className="text-sm text-gray-400 mb-4">No automation jobs yet.</p>
-                <p className="text-xs text-gray-500">Jobs will appear here when you run scans or apply label rules.</p>
+              ))}
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">⚙️</span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {jobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className={`p-4 md:p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 ${getStatusColor(
-                      job.status
-                    )}`}
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 gap-4">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="text-2xl flex-shrink-0">{getStatusIcon(job.status)}</div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base md:text-lg font-semibold text-white">{job.name}</h3>
-                          <p className="text-sm text-gray-300 mb-2">{job.description}</p>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-gray-400">
-                            <span className="px-2 py-1 bg-black/20 rounded-full w-fit">{getTypeLabel(job.type)}</span>
-                            <span>Created: {formatDate(job.createdAt)}</span>
-                            {job.startedAt && <span>Duration: {formatDuration(job.startedAt, job.completedAt)}</span>}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2 md:text-right">
-                        <div className="text-sm font-medium text-white">{job.progress}%</div>
-                        <div className="w-full md:w-24 h-2 bg-black/30 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-500"
-                            style={{ width: `${job.progress}%` }}
-                          />
-                        </div>
+              <p className="text-sm text-gray-400 mb-4">No automation jobs yet.</p>
+              <p className="text-xs text-gray-500">Jobs will appear here when you run scans or apply label rules.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {jobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={`p-4 md:p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 ${getStatusColor(
+                    job.status
+                  )}`}
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="text-2xl flex-shrink-0">{getStatusIcon(job.status)}</div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base md:text-lg font-semibold text-white">{job.name}</h3>
+                      <p className="text-sm text-gray-300 mb-2">{job.description}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-gray-400">
+                        <span className="px-2 py-1 bg-black/20 rounded-full w-fit">{getTypeLabel(job.type)}</span>
+                        {job.startedAt && <span>Duration: {formatDuration(job.startedAt, job.completedAt)}</span>}
                       </div>
                     </div>
+                  </div>
 
-                    {/* Job Control Buttons */}
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      {job.status === "pending" && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          className="bg-green-600/20 text-green-400 hover:bg-green-600/30 text-sm"
-                          onPress={() => handleStartJob(job.id)}
-                        >
-                          ▶️ Start
-                        </Button>
-                      )}
+                  {/* Job Control Buttons */}
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {job.status === "pending" && (
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        className="bg-green-600/20 text-green-400 hover:bg-green-600/30 text-sm"
+                        onPress={() => handleStartJob(job.id)}
+                      >
+                        ▶️ Start
+                      </Button>
+                    )}
 
-                      {job.status === "running" && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          className="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 text-sm"
-                          onPress={() => handlePauseJob(job.id)}
-                        >
-                          ⏸️ Pause
-                        </Button>
-                      )}
-
-                      {job.status === "paused" && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-sm"
-                          onPress={() => handleResumeJob(job.id)}
-                        >
-                          ▶️ Resume
-                        </Button>
-                      )}
-
-                      {["running", "paused", "pending"].includes(job.status) && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          className="bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm"
-                          onPress={() => handleCancelJob(job.id)}
-                        >
-                          ⏹️ Cancel
-                        </Button>
-                      )}
-
-                      {job.status !== "running" && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          className="bg-red-800/20 text-red-300 hover:bg-red-800/30 border border-red-700/50 text-sm"
-                          onPress={() => handleDeleteJob(job.id)}
-                        >
-                          🗑️ Delete
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Job Status Messages */}
                     {job.status === "running" && (
-                      <div className="bg-black/20 rounded-lg p-3 mt-4">
-                        <div className="flex items-center gap-2 text-sm text-green-400">
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-400 border-t-transparent"></div>
-                          Processing...
-                        </div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        className="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 text-sm"
+                        onPress={() => handlePauseJob(job.id)}
+                      >
+                        ⏸️ Pause
+                      </Button>
                     )}
 
                     {job.status === "paused" && (
-                      <div className="bg-yellow-900/30 border border-yellow-400/50 rounded-lg p-3 mt-4">
-                        <div className="text-sm text-yellow-300">⏸️ Job is paused. Click Resume to continue.</div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-sm"
+                        onPress={() => handleResumeJob(job.id)}
+                      >
+                        ▶️ Resume
+                      </Button>
                     )}
 
-                    {job.error && (
-                      <div className="bg-red-900/30 border border-red-400/50 rounded-lg p-3 mt-4">
-                        <div className="text-sm text-red-300">
-                          <strong>Error:</strong> {job.error}
-                        </div>
-                      </div>
+                    {["running", "paused", "pending"].includes(job.status) && (
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        className="bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm"
+                        onPress={() => handleCancelJob(job.id)}
+                      >
+                        ⏹️ Cancel
+                      </Button>
                     )}
 
-                    {job.status === "completed" && job.completedAt && (
-                      <div className="text-xs text-gray-400 mt-4">
-                        ✅ Completed successfully on {formatDate(job.completedAt)}
-                      </div>
-                    )}
-
-                    {job.status === "failed" && (
-                      <div className="text-xs text-red-400 mt-4">❌ Failed - Check error details above</div>
-                    )}
-
-                    {job.status === "cancelled" && (
-                      <div className="text-xs text-gray-400 mt-4">⏹️ Job was cancelled</div>
-                    )}
-
-                    {/* Label Job Specific Info */}
-                    {job.type === "label_application" && (
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-400">
-                        <div>
-                          <div className="font-medium">Messages Processed</div>
-                          <div>{job.messagesProcessed || 0}</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">Labels Applied</div>
-                          <div>{job.labelsApplied || 0}</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">Messages Matched</div>
-                          <div>{job.messagesMatched || 0}</div>
-                        </div>
-                      </div>
+                    {job.status !== "running" && (
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        className="bg-red-800/20 text-red-300 hover:bg-red-800/30 border border-red-700/50 text-sm"
+                        onPress={() => handleDeleteJob(job.id)}
+                      >
+                        🗑️ Delete
+                      </Button>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  {/* Job Status Messages */}
+                  {job.status === "running" && (
+                    <div className="bg-black/20 rounded-lg p-3 mt-4">
+                      <div className="flex items-center gap-2 text-sm text-green-400">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-400 border-t-transparent"></div>
+                        Processing...
+                      </div>
+                    </div>
+                  )}
+
+                  {job.status === "paused" && (
+                    <div className="bg-yellow-900/30 border border-yellow-400/50 rounded-lg p-3 mt-4">
+                      <div className="text-sm text-yellow-300">⏸️ Job is paused. Click Resume to continue.</div>
+                    </div>
+                  )}
+
+                  {job.error && (
+                    <div className="bg-red-900/30 border border-red-400/50 rounded-lg p-3 mt-4">
+                      <div className="text-sm text-red-300">
+                        <strong>Error:</strong> {job.error}
+                      </div>
+                    </div>
+                  )}
+
+                  {job.status === "completed" && job.completedAt && (
+                    <div className="text-xs text-gray-400 mt-4">
+                      ✅ Completed successfully on {formatDate(job.completedAt)}
+                    </div>
+                  )}
+
+                  {job.status === "failed" && (
+                    <div className="text-xs text-red-400 mt-4">❌ Failed - Check error details above</div>
+                  )}
+
+                  {job.status === "cancelled" && <div className="text-xs text-gray-400 mt-4">⏹️ Job was cancelled</div>}
+
+                  {/* Label Job Specific Info */}
+                  {job.type === "label_application" && (
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-400">
+                      <div>
+                        <div className="font-medium">Messages Processed</div>
+                        <div>{job.messagesProcessed || 0}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Labels Applied</div>
+                        <div>{job.labelsApplied || 0}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Messages Matched</div>
+                        <div>{job.messagesMatched || 0}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
