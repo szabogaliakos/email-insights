@@ -59,7 +59,7 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => router.push(step.url)}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 ${
+                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 cursor-pointer ${
                     isCompleted
                       ? "bg-success border-success text-success-foreground"
                       : isCurrent
@@ -77,7 +77,7 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
                 {/* Step Text */}
                 <button
                   onClick={() => router.push(step.url)}
-                  className="text-center mt-3 max-w-[120px] hover:opacity-80 transition-opacity"
+                  className="text-center mt-3 max-w-[120px] hover:opacity-80 transition-opacity cursor-pointer"
                 >
                   <p
                     className={`text-sm font-medium transition-colors ${
