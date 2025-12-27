@@ -25,6 +25,8 @@ export class IMAPHeaderScanner extends BaseScanner {
    */
   private static getGmailMailboxCandidates(): string[] {
     return [
+      "[Gmail]/Összes levél",
+      "[Gmail]/&ANY-sszes lev&AOk-l",
       "[Gmail]/All Mail", // Most common
       "[Gmail]/AllMail", // Alternative spelling
       "INBOX", // Standard IMAP inbox
