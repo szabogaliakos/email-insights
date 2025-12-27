@@ -21,6 +21,44 @@ export class IMAPHeaderScanner extends BaseScanner {
   }
 
   /**
+   * Get available mailbox names to try for Gmail IMAP
+   */
+  private static getGmailMailboxCandidates(): string[] {
+    return [
+      "[Gmail]/All Mail", // Most common
+      "[Gmail]/AllMail", // Alternative spelling
+      "INBOX", // Standard IMAP inbox
+      "[Google Mail]/All Mail", // Alternative format
+      "Archive", // Some accounts use this
+    ];
+  }
+
+  /**
+   * Try to find a working mailbox for Gmail IMAP scanning
+   */
+  private static async findWorkingMailbox(imap: any, preferredMailbox?: string): Promise<string> {
+    const candidates = preferredMailbox
+      ? [preferredMailbox, ...this.getGmailMailboxCandidates().filter((m) => m !== preferredMailbox)]
+      : this.getGmailMailboxCandidates();
+
+    for (const mailboxName of candidates) {
+      try {
+        console.log(`[IMAP] Trying mailbox: "${mailboxName}"`);
+        await imap.mailboxOpen(mailboxName);
+
+        // If we get here, the mailbox opened successfully
+        console.log(`[IMAP] Successfully opened mailbox: "${mailboxName}"`);
+        return mailboxName;
+      } catch (error: any) {
+        console.log(`[IMAP] Mailbox "${mailboxName}" failed: ${error.message}`);
+        // Continue to next candidate
+      }
+    }
+
+    throw new Error(`No working mailbox found. Tried: ${candidates.join(", ")}`);
+  }
+
+  /**
    * Scan Gmail mailbox headers using IMAP (fast method with app password or OAuth)
    */
   static async scanHeaders(refreshToken: string): Promise<ContactScanResult> {
@@ -32,7 +70,7 @@ export class IMAPHeaderScanner extends BaseScanner {
 
     // Use configurable options with smart defaults
     const maxMessages = imapSettings?.maxMessages || 10000; // Increased default for IMAP performance (50K messages)
-    const mailbox = imapSettings?.mailbox || "[Gmail]/All Mail"; // Default: All Mail
+    const preferredMailbox = imapSettings?.mailbox; // User's preferred mailbox if set
 
     let imapConfig: any;
 
@@ -70,13 +108,15 @@ export class IMAPHeaderScanner extends BaseScanner {
     let status: any = null;
     let totalMessages = 0;
     let processed = 0;
+    let mailbox: string | undefined;
 
     try {
       console.log(`[IMAP] Connecting to ${imapConfig.host}:${imapConfig.port} for ${email}...`);
       await imap.connect();
-      console.log(`[IMAP] Connected successfully, opening mailbox "${mailbox}"...`);
-      await imap.mailboxOpen(mailbox);
-      console.log(`[IMAP] Mailbox opened successfully`);
+      console.log(`[IMAP] Connected successfully, finding working mailbox...`);
+
+      // Find a working mailbox (try preferred first, then fallbacks)
+      mailbox = await this.findWorkingMailbox(imap, preferredMailbox);
 
       // Get status to know how many messages there are
       status = await imap.status(mailbox, { messages: true });
