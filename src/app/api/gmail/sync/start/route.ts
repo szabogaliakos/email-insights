@@ -2,8 +2,15 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/google";
 import { IMAPHeaderScanner } from "@/lib/scanners/imap-header-scanner";
+import { BaseScanner } from "@/lib/scanners/base-scanner";
 import { GmailAPIScanner } from "@/lib/scanners/gmail-api-scanner";
-import { saveContactSnapshot, loadContactSnapshot, saveIMAPProgress, loadIMAPProgress } from "@/lib/firestore";
+import {
+  saveContactSnapshot,
+  loadContactSnapshot,
+  saveIMAPProgress,
+  loadIMAPProgress,
+  loadIMAPSettings,
+} from "@/lib/firestore";
 import { createJob, processJob, getJob } from "@/lib/job-manager";
 
 export async function POST(request: NextRequest) {
@@ -23,6 +30,9 @@ export async function POST(request: NextRequest) {
       console.log("[SCAN] Starting IMAP method for contact scanning");
 
       const { auth: oauth2Client, email } = await getGmailClient(refreshToken);
+
+      // Load IMAP settings for error reporting
+      const imapSettings = await loadIMAPSettings(email);
 
       try {
         // Create IMAP job with progress tracking
@@ -67,7 +77,7 @@ export async function POST(request: NextRequest) {
             await saveIMAPProgress(email, progressUpdate);
 
             // Update job as completed
-            IMAPHeaderScanner.updateIMAPJob(imapJobId, {
+            BaseScanner.updateJob(imapJobId, {
               status: "completed",
               scanned: result.scanned,
               totalScanned: totalMessagesScanned,
@@ -83,10 +93,43 @@ export async function POST(request: NextRequest) {
             );
           },
           (error) => {
-            console.error("[IMAP] Scan failed:", error);
-            IMAPHeaderScanner.updateIMAPJob(imapJobId, {
+            // Enhanced error logging with full details
+            console.error("[IMAP] Detailed job failure:", {
+              error:
+                error instanceof Error
+                  ? {
+                      message: error.message,
+                      stack: error.stack,
+                      name: error.name,
+                    }
+                  : error,
+              jobId: imapJobId,
+              email,
+              imapSettings: {
+                enabled: imapSettings?.enabled,
+                setupCompleted: imapSettings?.setupCompleted,
+                mailbox: imapSettings?.mailbox,
+                maxMessages: imapSettings?.maxMessages,
+                hasAppPassword: !!imapSettings?.appPassword,
+              },
+              timestamp: new Date().toISOString(),
+            });
+
+            BaseScanner.updateJob(imapJobId, {
               status: "failed",
-              error: error.message,
+              error: error instanceof Error ? error.message : String(error),
+              errorDetails:
+                error instanceof Error
+                  ? {
+                      message: error.message,
+                      stack: error.stack,
+                      name: error.name,
+                      fullError: error,
+                    }
+                  : {
+                      message: String(error),
+                      fullError: error,
+                    },
               completedAt: new Date().toISOString(),
             });
           }

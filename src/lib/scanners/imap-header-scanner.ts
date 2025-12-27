@@ -67,14 +67,20 @@ export class IMAPHeaderScanner extends BaseScanner {
     }
 
     const imap = new ImapFlow(imapConfig);
+    let status: any = null;
+    let totalMessages = 0;
+    let processed = 0;
 
     try {
+      console.log(`[IMAP] Connecting to ${imapConfig.host}:${imapConfig.port} for ${email}...`);
       await imap.connect();
+      console.log(`[IMAP] Connected successfully, opening mailbox "${mailbox}"...`);
       await imap.mailboxOpen(mailbox);
+      console.log(`[IMAP] Mailbox opened successfully`);
 
       // Get status to know how many messages there are
-      const status = await imap.status(mailbox, { messages: true });
-      const totalMessages = Math.min(status.messages || 0, maxMessages);
+      status = await imap.status(mailbox, { messages: true });
+      totalMessages = Math.min(status.messages || 0, maxMessages);
 
       console.log(
         `[IMAP] Opened mailbox "${mailbox}" with ${status.messages} messages (${totalMessages} will be processed)`
@@ -147,7 +153,36 @@ export class IMAPHeaderScanner extends BaseScanner {
             }
           }
         } catch (fetchError) {
-          console.warn(`[IMAP] Batch fetch error: ${fetchError}`);
+          // Enhanced batch error logging with structured JSON for Cloud Logging
+          const batchErrorLog = {
+            severity: "WARNING",
+            message: "[IMAP] Detailed batch fetch error",
+            error:
+              fetchError instanceof Error
+                ? {
+                    message: fetchError.message,
+                    stack: fetchError.stack,
+                    name: fetchError.name,
+                  }
+                : fetchError,
+            email,
+            batchInfo: {
+              startSeq,
+              endSeq,
+              currentBatchSize,
+              mailbox,
+              totalMessages,
+            },
+            imapConfig: {
+              host: imapConfig.host,
+              port: imapConfig.port,
+              secure: imapConfig.secure,
+              authMethod: imapSettings?.enabled && imapSettings?.appPassword ? "app_password" : "oauth",
+            },
+            timestamp: new Date().toISOString(),
+          };
+
+          console.log(JSON.stringify(batchErrorLog));
           // Continue with next batch rather than fail entirely
         }
 
@@ -172,8 +207,41 @@ export class IMAPHeaderScanner extends BaseScanner {
         messageCount: totalMessages,
       };
     } catch (error) {
+      // Enhanced error logging with structured JSON for Cloud Logging
+      const errorLog = {
+        severity: "ERROR",
+        message: "[IMAP] Detailed scan error",
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
+        email,
+        imapConfig: {
+          host: imapConfig.host,
+          port: imapConfig.port,
+          secure: imapConfig.secure,
+          authMethod: imapSettings?.enabled && imapSettings?.appPassword ? "app_password" : "oauth",
+          mailbox,
+          maxMessages,
+        },
+        status: status
+          ? {
+              messages: status.messages,
+              totalMessages,
+              processed,
+            }
+          : null,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(JSON.stringify(errorLog));
+
       await imap.logout().catch(() => {}); // Ignore logout errors
-      throw new Error(`IMAP scanning failed: ${error}`);
+      throw new Error(`IMAP scanning failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -234,6 +302,12 @@ export class IMAPHeaderScanner extends BaseScanner {
     const endAt = Math.min(totalMailboxMessages, startFrom + batchSize - 1);
     const messagesInThisBatch = Math.max(0, endAt - startFrom + 1);
 
+    // Declare variables for error logging scope
+    let batchStartFrom = startFrom;
+    let batchEndAt = endAt;
+    let batchMessagesInThisBatch = messagesInThisBatch;
+    let batchTotalMailboxMessages = totalMailboxMessages;
+
     // Check if we've reached the end
     if (messagesInThisBatch <= 0) {
       await imap.logout();
@@ -272,7 +346,37 @@ export class IMAPHeaderScanner extends BaseScanner {
         });
       }
     } catch (fetchError) {
-      console.warn(`[IMAP] Batch fetch error: ${fetchError}`);
+      // Enhanced batch error logging with structured JSON for Cloud Logging
+      const batchErrorLog = {
+        severity: "WARNING",
+        message: "[IMAP] Detailed batch fetch error",
+        error:
+          fetchError instanceof Error
+            ? {
+                message: fetchError.message,
+                stack: fetchError.stack,
+                name: fetchError.name,
+              }
+            : fetchError,
+        email,
+        batchInfo: {
+          startFrom: batchStartFrom,
+          endAt: batchEndAt,
+          messagesInThisBatch: batchMessagesInThisBatch,
+          mailbox,
+          totalMailboxMessages: batchTotalMailboxMessages,
+        },
+        imapConfig: {
+          host: imapConfig.host,
+          port: imapConfig.port,
+          secure: imapConfig.secure,
+          authMethod: imapSettings?.enabled && imapSettings?.appPassword ? "app_password" : "oauth",
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(JSON.stringify(batchErrorLog));
+      // Continue with next batch rather than fail entirely
     } finally {
       await imap.logout();
     }

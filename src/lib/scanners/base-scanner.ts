@@ -267,9 +267,24 @@ export abstract class BaseScanner {
         lastMessageScanned: nextOffset,
       };
     } catch (error: any) {
+      // Enhanced error storage with full details
+      const errorDetails =
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              fullError: error,
+            }
+          : {
+              message: String(error),
+              fullError: error,
+            };
+
       BaseScanner.updateJob(jobId, {
         status: "failed",
-        error: error.message,
+        error: errorDetails.message,
+        errorDetails: errorDetails,
         completedAt: new Date().toISOString(),
       });
       throw error;

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { IMAPHeaderScanner } from "@/lib/scanners/imap-header-scanner";
+import { BaseScanner } from "@/lib/scanners/base-scanner";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
-    const job = IMAPHeaderScanner.getIMAPJob(jobId);
+    const job = BaseScanner.getJob(jobId);
 
     if (!job) {
       return NextResponse.json({ error: "IMAP job not found" }, { status: 404 });
@@ -21,13 +21,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    // If job failed, return error
+    // If job failed, return detailed error information
     if (job.status === "failed") {
       return NextResponse.json(
         {
           ...job,
           status: "failed",
           completeMessage: `IMAP scan failed: ${job.error}`,
+          errorDetails: job.errorDetails || {
+            message: job.error,
+            note: "Detailed error information not available for this job",
+          },
         },
         { status: 500 }
       );
